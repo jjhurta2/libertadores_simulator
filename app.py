@@ -68,7 +68,6 @@ groups_data = {
     ]
 }
 
-# Render current standings
 for group_name, data in groups_data.items():
     st.subheader(group_name)
     df = create_group_df(data)
@@ -76,7 +75,6 @@ for group_name, data in groups_data.items():
 
 st.divider()
 
-# --- HISTORICAL DATA (Matchdays 1-5) ---
 past_matches = [
     {"group": "Group A", "home": "Flamengo", "away": "Estudiantes de La Plata", "home_score": 1, "away_score": 0},
     {"group": "Group A", "home": "Cusco FC", "away": "Independiente Medellín", "home_score": 2, "away_score": 3},
@@ -95,48 +93,56 @@ matchday_6_fixtures = {
 
 # --- ANALYTICS TRANSLATOR ENGINE ---
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_api_odds(api_key):
-    """Fetches and caches odds from The Odds API for 1 hour."""
+    """Fetches odds from The Odds API and caches for 1 hour."""
     url = "https://api.the-odds-api.com/v4/sports/soccer_conmebol_libertadores/odds/"
     params = {"apiKey": api_key, "regions": "us", "markets": "h2h"}
     
     try:
         response = requests.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        return None # Graceful failure if API limits are hit or matches aren't live yet
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except:
+        return None
+
+def is_team_match(my_team, api_team):
+    """Smart fuzzy matching algorithm for bookmaker team names."""
+    mt = my_team.lower()
+    at = api_team.lower()
+    # 1. Direct match or obvious substring (e.g., 'flamengo' in 'cr flamengo')
+    if mt in at or at in mt: return True
+    # 2. Key identifier match (handles prefixes like 'CA' or 'FC')
+    my_words = set(mt.split())
+    api_words = set(at.split())
+    # If any strong word (>3 letters) exists in both, call it a match
+    sig_my = {w for w in my_words if len(w) > 3}
+    sig_api = {w for w in api_words if len(w) > 3}
+    if sig_my.intersection(sig_api): return True
+    return False
 
 def calculate_proxy_xg(home_team_name, away_team_name, group_data):
-    """Calculates Implied xG using the historical stats already in the app."""
     home_stats = next(t for t in group_data if t["Team"] == home_team_name)
     away_stats = next(t for t in group_data if t["Team"] == away_team_name)
     
     home_attack = home_stats["Goals Scored"] / max(1, home_stats["Played"])
     away_defense = away_stats["Goals Received"] / max(1, away_stats["Played"])
-    
     away_attack = away_stats["Goals Scored"] / max(1, away_stats["Played"])
     home_defense = home_stats["Goals Received"] / max(1, home_stats["Played"])
     
-    # (Own Attack + Opponent Defense) / 2, plus +0.2 home field bump
     home_xg = ((home_attack + away_defense) / 2) + 0.2
     away_xg = (away_attack + home_defense) / 2
-    
     return max(0.1, home_xg), max(0.1, away_xg)
 
 def get_match_defaults(home_team, away_team, group_data, api_odds):
-    """Returns the best available default probabilities and xG."""
-    defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0}
-    
-    # Derive analytical xG proxy
+    defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0, "api_found": False}
     defaults["xgh"], defaults["xga"] = calculate_proxy_xg(home_team, away_team, group_data)
     
-    # Extract real implied probabilities from The Odds API
     if api_odds:
         for event in api_odds:
-            # Fuzzy match to handle slight naming differences (e.g., "Boca" vs "Boca Juniors")
-            if home_team[:5].lower() in event.get("home_team", "").lower() and away_team[:5].lower() in event.get("away_team", "").lower():
+            # We enforce that BOTH the home and away teams must match the API to prevent cross-matching
+            if is_team_match(home_team, event.get("home_team", "")) and is_team_match(away_team, event.get("away_team", "")):
                 for market in event.get("bookmakers", []):
                     for mk in market.get("markets", []):
                         if mk["key"] == "h2h":
@@ -153,6 +159,7 @@ def get_match_defaults(home_team, away_team, group_data, api_odds):
                                 
                                 defaults["ph"] = (imp_home / total) * 100
                                 defaults["pa"] = (imp_away / total) * 100
+                                defaults["api_found"] = True
                                 return defaults
     return defaults
 
@@ -163,12 +170,9 @@ def calculate_standings(group_teams, all_group_matches):
     for match in all_group_matches:
         home, away, hg, ag = match["home"], match["away"], match["home_score"], match["away_score"]
         if home in stats and away in stats:
-            stats[home]["Played"] += 1
-            stats[away]["Played"] += 1
-            stats[home]["Goals Scored"] += hg
-            stats[home]["Goals Received"] += ag
-            stats[away]["Goals Scored"] += ag
-            stats[away]["Goals Received"] += hg
+            stats[home]["Played"] += 1; stats[away]["Played"] += 1
+            stats[home]["Goals Scored"] += hg; stats[home]["Goals Received"] += ag
+            stats[away]["Goals Scored"] += ag; stats[away]["Goals Received"] += hg
             if hg > ag:
                 stats[home]["Won"] += 1; stats[home]["Points"] += 3; stats[away]["Lost"] += 1
             elif ag > hg:
@@ -222,14 +226,25 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
     return 0, 1
 
 
-# --- DATA INITIALIZATION ---
+# --- MONTE CARLO SIMULATOR UI ---
+st.header("🎲 Matchday 6 Monte Carlo Simulator")
+
+# --- API CONTROL PANEL ---
 API_KEY = "1519e91698b46c9f701d36bac34cebb3"
 live_odds = fetch_api_odds(API_KEY)
 
-
-# --- MONTE CARLO SIMULATOR UI ---
-st.header("🎲 Matchday 6 Monte Carlo Simulator")
-st.markdown("Metrics are pre-populated using live bookmaker odds and analytically derived xG based on Matchday 1-5 performance.")
+colA, colB = st.columns([3, 1])
+with colA:
+    if live_odds is None:
+        st.error("🔴 API Error: Could not connect to The Odds API. Using fallback defaults.")
+    elif len(live_odds) == 0:
+        st.warning("🟡 No Odds Found: Bookmakers have not released the lines for Copa Libertadores yet. Using statistical defaults.")
+    else:
+        st.success(f"🟢 API Connected: Found live bookmaker odds for {len(live_odds)} matches.")
+with colB:
+    if st.button("🔄 Force Refresh API Data"):
+        st.cache_data.clear()
+        st.rerun()
 
 mc_iterations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
 predictions = {}
@@ -244,16 +259,18 @@ with st.form("mc_form"):
             home_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == home_team)
             away_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == away_team)
             
-            # Fetch dynamic defaults from the API and xG logic
             defaults = get_match_defaults(home_team, away_team, groups_data[group_name], live_odds)
             
             with match_cols[i]:
                 cols = st.columns([4, 2, 2, 2, 2, 4])
                 
+                # Check mark if API odds were successfully mapped to this specific game
+                api_badge = "⚡" if defaults["api_found"] else ""
+                
                 with cols[0]: 
                     st.markdown(f"""
                         <div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 24px;'>
-                            <span style='font-size: 0.9em; font-weight: bold; margin-right: 8px; text-align: right;'>{home_team}</span>
+                            <span style='font-size: 0.9em; font-weight: bold; margin-right: 8px; text-align: right;'>{api_badge} {home_team}</span>
                             <img src='{home_logo_url}' width='28' height='28' style='border-radius: 50%;'>
                         </div>
                     """, unsafe_allow_html=True)
@@ -272,11 +289,8 @@ with st.form("mc_form"):
                     """, unsafe_allow_html=True)
                 
                 pt = max(0.0, 100.0 - ph - pa)
+                group_preds.append({"group": group_name, "home": home_team, "away": away_team, "ph": ph, "pt": pt, "pa": pa, "xgh": xgh, "xga": xga})
                 
-                group_preds.append({
-                    "group": group_name, "home": home_team, "away": away_team, 
-                    "ph": ph, "pt": pt, "pa": pa, "xgh": xgh, "xga": xga
-                })
         predictions[group_name] = group_preds
         st.write("---")
         
@@ -286,13 +300,11 @@ with st.form("mc_form"):
 if run_mc:
     progress = st.progress(0)
     status_text = st.empty()
-    
     mc_results = {g: {t["Team"]: {1:0, 2:0, 3:0, 4:0} for t in groups_data[g]} for g in groups_data}
     
     for i in range(mc_iterations):
         for group_name in groups_data.keys():
             group_past = [m for m in past_matches if m["group"] == group_name]
-            
             simulated_m6 = []
             for match in predictions[group_name]:
                 hg, ag = simulate_match_randomly(match["ph"], match["pt"], match["pa"], match["xgh"], match["xga"])
@@ -315,7 +327,6 @@ if run_mc:
     st.header("📊 Monte Carlo Probability Matrices")
     for group_name in groups_data.keys():
         st.subheader(f"{group_name} Matrix")
-        
         res_data = []
         for team_name, positions in mc_results[group_name].items():
             row = {"Team": team_name}
@@ -324,7 +335,6 @@ if run_mc:
             res_data.append(row)
             
         df_res = pd.DataFrame(res_data)
-        
         df_res["1st_val"] = df_res["1º"].str.rstrip('%').astype(float)
         df_res["2nd_val"] = df_res["2º"].str.rstrip('%').astype(float)
         df_res = df_res.sort_values(by=["1st_val", "2nd_val"], ascending=[False, False])
@@ -333,9 +343,4 @@ if run_mc:
         df_res["Logo"] = df_res["Team"].apply(lambda t: next(item["Logo"] for item in groups_data[group_name] if item["Team"] == t))
         df_res = df_res[["Logo", "Team", "1º", "2º", "3º", "4º"]]
         
-        st.dataframe(
-            df_res,
-            column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo")},
-            hide_index=True,
-            use_container_width=True
-        )
+        st.dataframe(df_res, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo")}, hide_index=True, use_container_width=True)
