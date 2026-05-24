@@ -133,22 +133,42 @@ TEAM_API_MAPPING = {
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_polymarket_events():
-    """Fetches active events safely to prevent Streamlit memory crashes."""
+    """Paginates through Polymarket to find buried sports matches safely."""
     url = "https://gamma-api.polymarket.com/events"
-    params = {"closed": "false", "active": "true", "limit": 300}
     headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
     
-    try:
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, dict) and "data" in data:
-                return data["data"]
-            elif isinstance(data, list):
-                return data
-        return []
-    except:
-        return []
+    sports_events = []
+    
+    # Page through the top 1,500 markets (in batches of 300)
+    for offset in [0, 300, 600, 900, 1200]:
+        params = {
+            "closed": "false", 
+            "active": "true", 
+            "limit": 300, 
+            "offset": offset
+        }
+        
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                events = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                
+                if not events: 
+                    break # Stop if we run out of active markets
+                
+                # Memory Saver: Only keep events that look like Head-to-Head sports matches
+                for e in events:
+                    title = e.get("title", "").lower()
+                    if " vs " in title or " vs. " in title:
+                        sports_events.append(e)
+            else:
+                break
+        except Exception as e:
+            print(f"Fetch warning at offset {offset}: {e}")
+            break
+            
+    return sports_events
 
 def normalize_string(s):
     """Removes accents and standardizes strings for matching."""
@@ -272,7 +292,7 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
 # --- MONTE CARLO SIMULATOR UI ---
 st.header("🎲 Matchday 6 Monte Carlo Simulator")
 
-# --- POLYMARKET STATUS PANEL ---
+# --- POLYMARKET STATUS PANEL & DEBUGGER ---
 poly_events = fetch_polymarket_events()
 
 colA, colB = st.columns([3, 1])
@@ -282,11 +302,20 @@ with colA:
     elif len(poly_events) == 0:
         st.warning("🟡 No Markets Found: Polymarket has no active events right now. Using statistical defaults.")
     else:
-        st.success("🟢 Polymarket API Connected: Scanning open prediction markets for probabilities.")
+        st.success(f"🟢 Polymarket API Connected: Scanning {len(poly_events)} open prediction markets for probabilities.")
 with colB:
     if st.button("🔄 Force Refresh API Data"):
         st.cache_data.clear()
         st.rerun()
+
+# The Debugger to prove what Polymarket is actually sending
+with st.expander("🔍 API Debugger (See fetched Polymarket sports events)"):
+    st.write("If your teams aren't matching, check this list. If the Copa Libertadores games aren't listed here, Polymarket doesn't have a market open for them yet!")
+    if poly_events:
+        event_titles = [e.get("title", "Unknown Event") for e in poly_events]
+        st.write(event_titles)
+    else:
+        st.write("No sports events fetched.")
 
 mc_iterations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
 predictions = {}
