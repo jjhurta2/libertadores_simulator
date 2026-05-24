@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
+import unicodedata
 
 # Configure the page layout
 st.set_page_config(page_title="Copa Libertadores 2026 Simulator", layout="wide")
