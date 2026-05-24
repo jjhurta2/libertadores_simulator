@@ -69,11 +69,27 @@ groups_data = {
     ]
 }
 
-# Render current standings
-for group_name, data in groups_data.items():
-    st.subheader(group_name)
-    df = create_group_df(data)
-    st.dataframe(df, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Position": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True)
+# --- RENDER CURRENT STANDINGS (2 COLUMNS) ---
+group_items = list(groups_data.items())
+
+# Iterate through the groups 2 at a time to create balanced rows
+for i in range(0, len(group_items), 2):
+    col1, col2 = st.columns(2)
+    
+    # Render the left column (Groups A, C, E, G)
+    with col1:
+        group_name, data = group_items[i]
+        st.subheader(group_name)
+        df = create_group_df(data)
+        st.dataframe(df, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Position": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True)
+        
+    # Render the right column (Groups B, D, F, H)
+    if i + 1 < len(group_items):
+        with col2:
+            group_name, data = group_items[i+1]
+            st.subheader(group_name)
+            df = create_group_df(data)
+            st.dataframe(df, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Position": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True)
 
 st.divider()
 
