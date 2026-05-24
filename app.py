@@ -91,38 +91,36 @@ matchday_6_fixtures = {
     "Group H": [("Independiente del Valle", "Rosario Central"), ("Libertad", "Universidad Central")]
 }
 
-# --- ANALYTICS TRANSLATOR ENGINE ---
+# --- POLYMARKET & ANALYTICS ENGINE ---
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_api_odds(api_key):
-    """Fetches odds from The Odds API and caches for 1 hour."""
-    url = "https://api.the-odds-api.com/v4/sports/soccer_conmebol_libertadores/odds/"
-    params = {"apiKey": api_key, "regions": "us", "markets": "h2h"}
-    
+def fetch_polymarket_events():
+    """Fetches active events from the open Polymarket Gamma API."""
+    url = "https://gamma-api.polymarket.com/events"
+    params = {"closed": "false", "active": "true"}
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=10)
         if response.status_code == 200:
             return response.json()
         return None
     except:
         return None
 
-def is_team_match(my_team, api_team):
-    """Smart fuzzy matching algorithm for bookmaker team names."""
+def is_team_match(my_team, target_string):
+    """Fuzzy matching to link our team names to Polymarket's event titles/outcomes."""
+    if not target_string: return False
     mt = my_team.lower()
-    at = api_team.lower()
-    # 1. Direct match or obvious substring (e.g., 'flamengo' in 'cr flamengo')
-    if mt in at or at in mt: return True
-    # 2. Key identifier match (handles prefixes like 'CA' or 'FC')
-    my_words = set(mt.split())
-    api_words = set(at.split())
-    # If any strong word (>3 letters) exists in both, call it a match
-    sig_my = {w for w in my_words if len(w) > 3}
-    sig_api = {w for w in api_words if len(w) > 3}
-    if sig_my.intersection(sig_api): return True
+    ts = target_string.lower()
+    if mt in ts: return True
+    
+    # Check significant words (e.g. "Boca" from "Boca Juniors")
+    my_words = {w for w in mt.split() if len(w) > 3}
+    for w in my_words:
+        if w in ts: return True
     return False
 
 def calculate_proxy_xg(home_team_name, away_team_name, group_data):
+    """Calculates Implied xG using the historical stats already in the app."""
     home_stats = next(t for t in group_data if t["Team"] == home_team_name)
     away_stats = next(t for t in group_data if t["Team"] == away_team_name)
     
@@ -135,32 +133,33 @@ def calculate_proxy_xg(home_team_name, away_team_name, group_data):
     away_xg = (away_attack + home_defense) / 2
     return max(0.1, home_xg), max(0.1, away_xg)
 
-def get_match_defaults(home_team, away_team, group_data, api_odds):
+def get_match_defaults(home_team, away_team, group_data, poly_events):
+    """Searches Polymarket order books for crowd-sourced match probabilities."""
     defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0, "api_found": False}
     defaults["xgh"], defaults["xga"] = calculate_proxy_xg(home_team, away_team, group_data)
     
-    if api_odds:
-        for event in api_odds:
-            # We enforce that BOTH the home and away teams must match the API to prevent cross-matching
-            if is_team_match(home_team, event.get("home_team", "")) and is_team_match(away_team, event.get("away_team", "")):
-                for market in event.get("bookmakers", []):
-                    for mk in market.get("markets", []):
-                        if mk["key"] == "h2h":
-                            outcomes = {o["name"]: o["price"] for o in mk["outcomes"]}
-                            home_odds = outcomes.get(event["home_team"])
-                            away_odds = outcomes.get(event["away_team"])
-                            draw_odds = outcomes.get("Draw")
-                            
-                            if home_odds and away_odds and draw_odds:
-                                imp_home = 1 / home_odds
-                                imp_away = 1 / away_odds
-                                imp_draw = 1 / draw_odds
-                                total = imp_home + imp_away + imp_draw
-                                
-                                defaults["ph"] = (imp_home / total) * 100
-                                defaults["pa"] = (imp_away / total) * 100
-                                defaults["api_found"] = True
-                                return defaults
+    if poly_events:
+        for event in poly_events:
+            title = event.get("title", "")
+            # Look for an event involving both teams
+            if is_team_match(home_team, title) and is_team_match(away_team, title):
+                for market in event.get("markets", []):
+                    outcomes = market.get("outcomes", [])
+                    prices = market.get("outcomePrices", [])
+                    
+                    if len(outcomes) >= 2 and len(prices) == len(outcomes):
+                        ph, pa = 0, 0
+                        # Map Polymarket shares/prices to probability percentages
+                        for i, outcome in enumerate(outcomes):
+                            price = float(prices[i]) * 100 
+                            if is_team_match(home_team, outcome): ph = price
+                            elif is_team_match(away_team, outcome): pa = price
+                        
+                        if ph > 0 and pa > 0:
+                            defaults["ph"] = ph
+                            defaults["pa"] = pa
+                            defaults["api_found"] = True
+                            return defaults
     return defaults
 
 
@@ -229,18 +228,17 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
 # --- MONTE CARLO SIMULATOR UI ---
 st.header("🎲 Matchday 6 Monte Carlo Simulator")
 
-# --- API CONTROL PANEL ---
-API_KEY = "1519e91698b46c9f701d36bac34cebb3"
-live_odds = fetch_api_odds(API_KEY)
+# --- POLYMARKET STATUS PANEL ---
+poly_events = fetch_polymarket_events()
 
 colA, colB = st.columns([3, 1])
 with colA:
-    if live_odds is None:
-        st.error("🔴 API Error: Could not connect to The Odds API. Using fallback defaults.")
-    elif len(live_odds) == 0:
-        st.warning("🟡 No Odds Found: Bookmakers have not released the lines for Copa Libertadores yet. Using statistical defaults.")
+    if poly_events is None:
+        st.error("🔴 Connection Error: Could not reach Polymarket. Using statistical defaults.")
+    elif len(poly_events) == 0:
+        st.warning("🟡 No Markets Found: Polymarket has no active events right now. Using statistical defaults.")
     else:
-        st.success(f"🟢 API Connected: Found live bookmaker odds for {len(live_odds)} matches.")
+        st.success("🟢 Polymarket API Connected: Scanning open prediction markets for probabilities.")
 with colB:
     if st.button("🔄 Force Refresh API Data"):
         st.cache_data.clear()
@@ -259,12 +257,13 @@ with st.form("mc_form"):
             home_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == home_team)
             away_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == away_team)
             
-            defaults = get_match_defaults(home_team, away_team, groups_data[group_name], live_odds)
+            # Grabs live market prices if they exist, otherwise falls back to our smart proxy
+            defaults = get_match_defaults(home_team, away_team, groups_data[group_name], poly_events)
             
             with match_cols[i]:
                 cols = st.columns([4, 2, 2, 2, 2, 4])
                 
-                # Check mark if API odds were successfully mapped to this specific game
+                # Check mark if Polymarket odds were mapped
                 api_badge = "⚡" if defaults["api_found"] else ""
                 
                 with cols[0]: 
