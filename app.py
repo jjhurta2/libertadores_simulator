@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import requests
 
 # Configure the page layout
 st.set_page_config(page_title="Copa Libertadores 2026 Simulator", layout="wide")
@@ -67,7 +68,6 @@ groups_data = {
     ]
 }
 
-# Render current standings
 for group_name, data in groups_data.items():
     st.subheader(group_name)
     df = create_group_df(data)
@@ -91,6 +91,75 @@ matchday_6_fixtures = {
     "Group G": [("Lanús", "Mirassol"), ("LDU Quito", "Always Ready")],
     "Group H": [("Independiente del Valle", "Rosario Central"), ("Libertad", "Universidad Central")]
 }
+
+# --- ANALYTICS TRANSLATOR ENGINE ---
+
+@st.cache_data(ttl=3600)
+def fetch_api_odds(api_key):
+    """Fetches and caches odds from The Odds API for 1 hour."""
+    url = "https://api.the-odds-api.com/v4/sports/soccer_conmebol_libertadores/odds/"
+    params = {"apiKey": api_key, "regions": "us", "markets": "h2h"}
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return None # Graceful failure if API limits are hit or matches aren't live yet
+
+def calculate_proxy_xg(home_team_name, away_team_name, group_data):
+    """Calculates Implied xG using the historical stats already in the app."""
+    home_stats = next(t for t in group_data if t["Team"] == home_team_name)
+    away_stats = next(t for t in group_data if t["Team"] == away_team_name)
+    
+    # Calculate per-game averages
+    home_attack = home_stats["Goals Scored"] / max(1, home_stats["Played"])
+    away_defense = away_stats["Goals Received"] / max(1, away_stats["Played"])
+    
+    away_attack = away_stats["Goals Scored"] / max(1, away_stats["Played"])
+    home_defense = home_stats["Goals Received"] / max(1, home_stats["Played"])
+    
+    # Simple proxy formula: (Own Attack + Opponent Defense) / 2
+    # Plus a standard +0.2 home field bump for the home team
+    home_xg = ((home_attack + away_defense) / 2) + 0.2
+    away_xg = (away_attack + home_defense) / 2
+    
+    return max(0.1, home_xg), max(0.1, away_xg)
+
+def get_match_defaults(home_team, away_team, group_data, api_odds):
+    """Returns the best available default probabilities and xG."""
+    # 1. Base default fallback
+    defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0}
+    
+    # 2. Derive analytical xG proxy from group standings
+    defaults["xgh"], defaults["xga"] = calculate_proxy_xg(home_team, away_team, group_data)
+    
+    # 3. Try to extract real implied probabilities from the API
+    if api_odds:
+        for event in api_odds:
+            # Fuzzy matching just in case API names differ slightly from our names
+            if home_team[:5].lower() in event.get("home_team", "").lower() and away_team[:5].lower() in event.get("away_team", "").lower():
+                for market in event.get("bookmakers", []):
+                    for mk in market.get("markets", []):
+                        if mk["key"] == "h2h":
+                            outcomes = {o["name"]: o["price"] for o in mk["outcomes"]}
+                            home_odds = outcomes.get(event["home_team"])
+                            away_odds = outcomes.get(event["away_team"])
+                            draw_odds = outcomes.get("Draw")
+                            
+                            if home_odds and away_odds and draw_odds:
+                                # Convert decimal odds to implied probabilities
+                                imp_home = 1 / home_odds
+                                imp_away = 1 / away_odds
+                                imp_draw = 1 / draw_odds
+                                total = imp_home + imp_away + imp_draw
+                                
+                                # Remove bookmaker overround (vig) to get true probability
+                                defaults["ph"] = (imp_home / total) * 100
+                                defaults["pa"] = (imp_away / total) * 100
+                                return defaults
+    return defaults
+
 
 # --- TIE-BREAKER LOGIC ---
 def calculate_standings(group_teams, all_group_matches):
@@ -156,9 +225,15 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
     if outcome == 'D': return 0, 0
     return 0, 1
 
+
+# --- DATA INITIALIZATION ---
+API_KEY = "1519e91698b46c9f701d36bac34cebb3"
+live_odds = fetch_api_odds(API_KEY)
+
+
 # --- MONTE CARLO SIMULATOR UI ---
 st.header("🎲 Matchday 6 Monte Carlo Simulator")
-st.markdown("Adjust the predictive metrics for the final matches to simulate the outcomes using official H2H tie-breaker rules.")
+st.markdown("Metrics are pre-populated using live bookmaker odds and analytically derived xG based on Matchday 1-5 performance.")
 
 mc_iterations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
 predictions = {}
@@ -167,19 +242,18 @@ with st.form("mc_form"):
     for group_name, fixtures in matchday_6_fixtures.items():
         st.markdown(f"#### {group_name}")
         group_preds = []
-        
-        # Create a two-column layout for the two matches in this group
         match_cols = st.columns(2)
         
         for i, (home_team, away_team) in enumerate(fixtures):
-            # Fetch the logo URLs for the current match
             home_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == home_team)
             away_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == away_team)
+            
+            # Fetch dynamic defaults
+            defaults = get_match_defaults(home_team, away_team, groups_data[group_name], live_odds)
             
             with match_cols[i]:
                 cols = st.columns([4, 2, 2, 2, 2, 4])
                 
-                # Render Home Team with Logo
                 with cols[0]: 
                     st.markdown(f"""
                         <div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 24px;'>
@@ -188,13 +262,11 @@ with st.form("mc_form"):
                         </div>
                     """, unsafe_allow_html=True)
                 
-                # Inputs
-                with cols[1]: ph = st.number_input("H%", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=50.0, step=1.0, format="%.0f")
-                with cols[2]: pa = st.number_input("A%", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=30.0, step=1.0, format="%.0f")
-                with cols[3]: xgh = st.number_input("HxG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=2.0, step=0.1, format="%.1f")
-                with cols[4]: xga = st.number_input("AxG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=1.0, step=0.1, format="%.1f")
+                with cols[1]: ph = st.number_input("H%", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=defaults["ph"], step=1.0, format="%.0f")
+                with cols[2]: pa = st.number_input("A%", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=defaults["pa"], step=1.0, format="%.0f")
+                with cols[3]: xgh = st.number_input("HxG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=defaults["xgh"], step=0.1, format="%.1f")
+                with cols[4]: xga = st.number_input("AxG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=defaults["xga"], step=0.1, format="%.1f")
                 
-                # Render Away Team with Logo
                 with cols[5]: 
                     st.markdown(f"""
                         <div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 24px;'>
@@ -203,7 +275,6 @@ with st.form("mc_form"):
                         </div>
                     """, unsafe_allow_html=True)
                 
-                # Automatically infer the tie percentage
                 pt = max(0.0, 100.0 - ph - pa)
                 
                 group_preds.append({
@@ -258,13 +329,11 @@ if run_mc:
             
         df_res = pd.DataFrame(res_data)
         
-        # Sort mathematically by highest probability of 1st, then 2nd
         df_res["1st_val"] = df_res["1º"].str.rstrip('%').astype(float)
         df_res["2nd_val"] = df_res["2º"].str.rstrip('%').astype(float)
         df_res = df_res.sort_values(by=["1st_val", "2nd_val"], ascending=[False, False])
         df_res = df_res.drop(columns=["1st_val", "2nd_val"])
         
-        # Pull logos for the output table
         df_res["Logo"] = df_res["Team"].apply(lambda t: next(item["Logo"] for item in groups_data[group_name] if item["Team"] == t))
         df_res = df_res[["Logo", "Team", "1º", "2º", "3º", "4º"]]
         
