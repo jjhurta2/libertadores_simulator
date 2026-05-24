@@ -175,4 +175,74 @@ with st.form("mc_form"):
             with cols[2]: pt = st.number_input("T%", key=f"{group_name}_m{i}_pt", min_value=0.0, max_value=100.0, value=20.0, step=1.0, format="%.0f")
             with cols[3]: pa = st.number_input("A%", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=30.0, step=1.0, format="%.0f")
             with cols[4]: xgh = st.number_input("HxG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=2.0, step=0.1, format="%.1f")
-            with cols[5]: xga = st.number_input("AxG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=1.0, step=0.1, format="
+            with cols[5]: xga = st.number_input("AxG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=1.0, step=0.1, format="%.1f")
+            with cols[6]: st.markdown(f"<p style='margin-top: 28px;'><b>{away_team}</b></p>", unsafe_allow_html=True)
+            
+            group_preds.append({
+                "group": group_name, "home": home_team, "away": away_team, 
+                "ph": ph, "pt": pt, "pa": pa, "xgh": xgh, "xga": xga
+            })
+        predictions[group_name] = group_preds
+        st.write("---")
+        
+    run_mc = st.form_submit_button("Run Monte Carlo Analysis", type="primary")
+
+# --- EXECUTE MONTE CARLO ---
+if run_mc:
+    progress = st.progress(0)
+    status_text = st.empty()
+    
+    mc_results = {g: {t["Team"]: {1:0, 2:0, 3:0, 4:0} for t in groups_data[g]} for g in groups_data}
+    
+    for i in range(mc_iterations):
+        for group_name in groups_data.keys():
+            group_past = [m for m in past_matches if m["group"] == group_name]
+            
+            simulated_m6 = []
+            for match in predictions[group_name]:
+                hg, ag = simulate_match_randomly(match["ph"], match["pt"], match["pa"], match["xgh"], match["xga"])
+                simulated_m6.append({"home": match["home"], "away": match["away"], "home_score": hg, "away_score": ag})
+                
+            all_matches = group_past + simulated_m6
+            raw_standings = calculate_standings(groups_data[group_name], all_matches)
+            sorted_standings = resolve_ties(raw_standings, all_matches)
+            
+            for pos, team in enumerate(sorted_standings):
+                mc_results[group_name][team["Team"]][pos + 1] += 1
+                
+        if i % max(1, mc_iterations // 10) == 0:
+            progress.progress(i / mc_iterations)
+            status_text.text(f"Running simulation {i}/{mc_iterations}...")
+            
+    progress.progress(1.0)
+    status_text.text("Simulation Complete!")
+    
+    st.header("📊 Monte Carlo Probability Matrices")
+    for group_name in groups_data.keys():
+        st.subheader(f"{group_name} Matrix")
+        
+        res_data = []
+        for team_name, positions in mc_results[group_name].items():
+            row = {"Team": team_name}
+            for pos in [1, 2, 3, 4]:
+                row[f"{pos}º"] = f"{(positions[pos] / mc_iterations) * 100:.1f}%"
+            res_data.append(row)
+            
+        df_res = pd.DataFrame(res_data)
+        
+        # Sort mathematically by highest probability of 1st, then 2nd
+        df_res["1st_val"] = df_res["1º"].str.rstrip('%').astype(float)
+        df_res["2nd_val"] = df_res["2º"].str.rstrip('%').astype(float)
+        df_res = df_res.sort_values(by=["1st_val", "2nd_val"], ascending=[False, False])
+        df_res = df_res.drop(columns=["1st_val", "2nd_val"])
+        
+        # Pull logos for the output table
+        df_res["Logo"] = df_res["Team"].apply(lambda t: next(item["Logo"] for item in groups_data[group_name] if item["Team"] == t))
+        df_res = df_res[["Logo", "Team", "1º", "2º", "3º", "4º"]]
+        
+        st.dataframe(
+            df_res,
+            column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo")},
+            hide_index=True,
+            use_container_width=True
+        )
