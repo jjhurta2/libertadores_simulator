@@ -62,9 +62,32 @@ groups_data = {
         {"Position": 3, "Team": "Sporting Cristal", "Played": 5, "Won": 2, "Lost": 3, "Drawn": 0, "Goals Scored": 6, "Goals Received": 7, "Goal Difference": -1, "Points": 6},
         {"Position": 4, "Team": "Junior FC", "Played": 5, "Won": 1, "Lost": 3, "Drawn": 1, "Goals Scored": 4, "Goals Received": 7, "Goal Difference": -3, "Points": 4}
     ],
-   "Group G": [
+    "Group G": [
         {"Position": 1, "Team": "Mirassol", "Played": 5, "Won": 4, "Lost": 1, "Drawn": 0, "Goals Scored": 7, "Goals Received": 3, "Goal Difference": 4, "Points": 12},
         {"Position": 2, "Team": "LDU Quito", "Played": 5, "Won": 3, "Lost": 2, "Drawn": 0, "Goals Scored": 5, "Goals Received": 3, "Goal Difference": 2, "Points": 9},
         {"Position": 3, "Team": "Lanús", "Played": 5, "Won": 2, "Lost": 3, "Drawn": 0, "Goals Scored": 2, "Goals Received": 7, "Goal Difference": -5, "Points": 6},
         {"Position": 4, "Team": "Always Ready", "Played": 5, "Won": 1, "Lost": 4, "Drawn": 0, "Goals Scored": 5, "Goals Received": 6, "Goal Difference": -1, "Points": 3}
     ],
+    "Group H": [
+        {"Position": 1, "Team": "Rosario Central", "Played": 5, "Won": 4, "Lost": 0, "Drawn": 1, "Goals Scored": 9, "Goals Received": 0, "Goal Difference": 9, "Points": 13},
+        {"Position": 2, "Team": "Independiente del Valle", "Played": 5, "Won": 3, "Lost": 1, "Drawn": 1, "Goals Scored": 10, "Goals Received": 6, "Goal Difference": 4, "Points": 10},
+        {"Position": 3, "Team": "Universidad Central", "Played": 5, "Won": 2, "Lost": 3, "Drawn": 0, "Goals Scored": 6, "Goals Received": 11, "Goal Difference": -5, "Points": 6},
+        {"Position": 4, "Team": "Libertad", "Played": 5, "Won": 0, "Lost": 5, "Drawn": 0, "Goals Scored": 4, "Goals Received": 12, "Goal Difference": -8, "Points": 0}
+    ]
+}
+
+# Render each group in the app
+for group_name, data in groups_data.items():
+    st.subheader(group_name)
+    df = create_group_df(data)
+    
+    # Configure Streamlit to render the Logo column as actual images
+    st.dataframe(
+        df,
+        column_config={
+            "Logo": st.column_config.ImageColumn("Logo", help="Team Logo"),
+            "Position": st.column_config.NumberColumn("Pos", format="%d"),
+        },
+        hide_index=True,
+        use_container_width=True
+    )
