@@ -7,17 +7,22 @@ import unicodedata
 # Configure the page layout
 st.set_page_config(page_title="Copa Libertadores 2026 Simulator", layout="wide")
 st.title("🏆 Copa Libertadores 2026 Simulator")
-st.markdown("Current group stage standings across all 8 groups.")
 
+# --- DATA FORMATTING ---
 def get_logo_url(filename):
     return f"https://github.com/jjhurta2/libertadores_simulator/blob/main/{filename}?raw=true"
 
 def create_group_df(data):
     df = pd.DataFrame(data)
-    cols = ["Position", "Logo", "Team", "Played", "Won", "Lost", "Drawn", "Goals Scored", "Goals Received", "Goal Difference", "Points"]
-    return df[cols]
+    # Map to requested headers
+    df = df.rename(columns={
+        "Position": "Pos", "Played": "GP", "Won": "W", "Drawn": "D", 
+        "Lost": "L", "Goals Scored": "GF", "Goals Received": "GA", 
+        "Goal Difference": "+/-", "Points": "Points"
+    })
+    return df[["Pos", "Logo", "Team", "GP", "W", "D", "L", "GF", "GA", "+/-", "Points"]]
 
-# Live 2026 Copa Libertadores Data
+# --- DATA ---
 groups_data = {
     "Group A": [
         {"Position": 1, "Logo": get_logo_url("flamengo.png"), "Team": "Flamengo", "Played": 5, "Won": 4, "Lost": 0, "Drawn": 1, "Goals Scored": 11, "Goals Received": 2, "Goal Difference": 9, "Points": 13},
@@ -69,36 +74,143 @@ groups_data = {
     ]
 }
 
-# --- RENDER CURRENT STANDINGS (2 COLUMNS) ---
+# --- RENDER TABLES IN 2 COLUMNS ---
 group_items = list(groups_data.items())
-
-# Iterate through the groups 2 at a time to create balanced rows
 for i in range(0, len(group_items), 2):
     col1, col2 = st.columns(2)
-    
-    # Render the left column (Groups A, C, E, G)
-    with col1:
-        group_name, data = group_items[i]
-        st.subheader(group_name)
-        df = create_group_df(data)
-        st.dataframe(df, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Position": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True)
-        
-    # Render the right column (Groups B, D, F, H)
-    if i + 1 < len(group_items):
-        with col2:
-            group_name, data = group_items[i+1]
-            st.subheader(group_name)
-            df = create_group_df(data)
-            st.dataframe(df, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Position": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True)
+    for idx, col in enumerate([col1, col2]):
+        if i + idx < len(group_items):
+            g_name, g_data = group_items[i + idx]
+            with col:
+                st.subheader(g_name)
+                st.data_editor(create_group_df(g_data), column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Pos": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True, disabled=True)
 
 st.divider()
 
-# --- HISTORICAL DATA (Matchdays 1-5) ---
-past_matches = [
-    {"group": "Group A", "home": "Flamengo", "away": "Estudiantes de La Plata", "home_score": 1, "away_score": 0},
-    {"group": "Group A", "home": "Cusco FC", "away": "Independiente Medellín", "home_score": 2, "away_score": 3},
-]
+# --- SIMULATOR BACKEND ---
+TEAM_API_MAPPING = {
+    "Flamengo": ["flamengo"], "Independiente Medellín": ["medellin", "dim"], 
+    "Estudiantes de La Plata": ["estudiantes"], "Cusco FC": ["cusco"],
+    "Coquimbo Unido": ["coquimbo"], "Deportes Tolima": ["tolima"],
+    "Universitario": ["universitario"], "Nacional de Football": ["nacional"],
+    "Ind. Rivadavia": ["rivadavia"], "Bolívar": ["bolivar"],
+    "Fluminense FC": ["fluminense"], "Deportivo La Guaira": ["guaira"],
+    "Universidad Católica": ["catolica"], "Cruzeiro": ["cruzeiro"],
+    "Boca Juniors": ["boca"], "Barcelona S.C.": ["barcelona"],
+    "Corinthians": ["corinthians"], "Platense": ["platense"],
+    "Independiente Santa Fe": ["santa fe"], "Peñarol": ["penarol", "peñarol"],
+    "Cerro Porteño": ["cerro", "porteno"], "Palmeiras": ["palmeiras"],
+    "Sporting Cristal": ["cristal"], "Junior FC": ["junior"],
+    "Mirassol": ["mirassol"], "LDU Quito": ["ldu", "quito"],
+    "Lanús": ["lanus"], "Always Ready": ["always"],
+    "Rosario Central": ["rosario"], "Independiente del Valle": ["valle", "idv"],
+    "Universidad Central": ["universidad central"], "Libertad": ["libertad"]
+}
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_polymarket_events():
+    url = "https://gamma-api.polymarket.com/events"
+    sports_events = []
+    for offset in [0, 300, 600, 900, 1200]:
+        try:
+            resp = requests.get(url, params={"closed": "false", "active": "true", "limit": 300, "offset": offset}, timeout=10)
+            if resp.status_code == 200:
+                events = resp.json()
+                data = events.get("data", []) if isinstance(events, dict) else (events if isinstance(events, list) else [])
+                for e in data:
+                    title = e.get("title", "").lower()
+                    if " vs " in title or " vs. " in title: sports_events.append(e)
+            else: break
+        except: break
+    return sports_events
+
+def is_team_match(my_team, target_string):
+    target_norm = "".join(c for c in unicodedata.normalize('NFD', str(target_string).lower()) if unicodedata.category(c) != 'Mn')
+    keywords = TEAM_API_MAPPING.get(my_team, [str(my_team).lower()])
+    for kw in keywords:
+        if str(kw).lower() in target_norm: return True
+    return False
+
+def get_match_defaults(home_team, away_team, group_data, poly_events):
+    home_stats = next(t for t in group_data if t["Team"] == home_team)
+    away_stats = next(t for t in group_data if t["Team"] == away_team)
+    home_xg = ((home_stats["Goals Scored"] / max(1, home_stats["Played"])) + (away_stats["Goals Received"] / max(1, away_stats["Played"]))) / 2 + 0.2
+    away_xg = ((away_stats["Goals Scored"] / max(1, away_stats["Played"])) + (home_stats["Goals Received"] / max(1, home_stats["Played"]))) / 2
+    defaults = {"ph": 50.0, "pa": 30.0, "xgh": home_xg, "xga": away_xg, "api_found": False}
+    
+    if poly_events:
+        for event in poly_events:
+            title = event.get("title", "")
+            if is_team_match(home_team, title) and is_team_match(away_team, title):
+                for market in event.get("markets", []):
+                    outcomes = market.get("outcomes", [])
+                    prices = market.get("outcomePrices", [])
+                    if len(outcomes) >= 2:
+                        ph, pa = 0, 0
+                        for i, o in enumerate(outcomes):
+                            p = float(prices[i]) * 100
+                            if is_team_match(home_team, o): ph = p
+                            elif is_team_match(away_team, o): pa = p
+                        if ph > 0 and pa > 0:
+                            defaults.update({"ph": ph, "pa": pa, "api_found": True})
+                            return defaults
+    return defaults
+
+def calculate_standings(group_teams, all_group_matches):
+    stats = {t["Team"]: {"Played": 0, "Won": 0, "Lost": 0, "Drawn": 0, "Goals Scored": 0, "Goals Received": 0, "Points": 0, "Logo": t["Logo"]} for t in group_teams}
+    for m in all_group_matches:
+        home, away, hg, ag = m["home"], m["away"], m["home_score"], m["away_score"]
+        if home in stats and away in stats:
+            stats[home]["Played"] += 1; stats[away]["Played"] += 1
+            stats[home]["Goals Scored"] += hg; stats[home]["Goals Received"] += ag
+            stats[away]["Goals Scored"] += ag; stats[away]["Goals Received"] += hg
+            if hg > ag: stats[home]["Won"] += 1; stats[home]["Points"] += 3; stats[away]["Lost"] += 1
+            elif ag > hg: stats[away]["Won"] += 1; stats[away]["Points"] += 3; stats[home]["Lost"] += 1
+            else: stats[home]["Drawn"] += 1; stats[away]["Drawn"] += 1; stats[home]["Points"] += 1; stats[away]["Points"] += 1
+    for team in stats:
+        stats[team]["Goal Difference"] = stats[team]["Goals Scored"] - stats[team]["Goals Received"]
+        stats[team]["Team"] = team
+    return list(stats.values())
+
+def resolve_ties(teams_list, all_group_matches):
+    points_groups = {}
+    for team in teams_list:
+        p = team["Points"]
+        if p not in points_groups: points_groups[p] = []
+        points_groups[p].append(team)
+    final_sorted_group = []
+    for p in sorted(points_groups.keys(), reverse=True):
+        tied = points_groups[p]
+        if len(tied) == 1: final_sorted_group.append(tied[0]); continue
+        names = [t["Team"] for t in tied]
+        h2h = [m for m in all_group_matches if m["home"] in names and m["away"] in names]
+        stats = calculate_standings(tied, h2h)
+        for s in stats:
+            orig = next(t for t in tied if t["Team"] == s["Team"])
+            s["Total GD"] = orig["Goal Difference"]; s["Total GS"] = orig["Goals Scored"]; s["Original Data"] = orig
+        stats.sort(key=lambda x: (x["Points"], x["Goal Difference"], x["Goals Scored"], x["Original Data"]["Points"], x["Total GD"], x["Total GS"]), reverse=True)
+        for s in stats: final_sorted_group.append(s["Original Data"])
+    for i, t in enumerate(final_sorted_group): t["Position"] = i + 1
+    return final_sorted_group
+
+def simulate_match_randomly(ph, pt, pa, xgh, xga):
+    p = [ph/100, pt/100, pa/100]
+    outcome = np.random.choice(['H', 'D', 'A'], p=p)
+    for _ in range(100):
+        hg, ag = np.random.poisson(xgh), np.random.poisson(xga)
+        if (outcome == 'H' and hg > ag) or (outcome == 'D' and hg == ag) or (outcome == 'A' and hg < ag): return hg, ag
+    return (1, 0) if outcome == 'H' else (0, 0) if outcome == 'D' else (0, 1)
+
+# --- SIMULATOR UI ---
+st.header("🎲 Matchday 6 Monte Carlo Simulator")
+poly_events = fetch_polymarket_events()
+colA, colB = st.columns([3, 1])
+with colA: st.success("🟢 Polymarket API Connected") if poly_events else st.warning("🟡 No Markets Found")
+with colB: 
+    if st.button("🔄 Refresh API"): st.cache_data.clear(); st.rerun()
+
+mc_iterations = st.number_input("Number of Simulations", value=1000, step=100)
+predictions = {}
 matchday_6_fixtures = {
     "Group A": [("Flamengo", "Cusco FC"), ("Estudiantes de La Plata", "Independiente Medellín")],
     "Group B": [("Nacional de Football", "Coquimbo Unido"), ("Universitario", "Deportes Tolima")],
@@ -109,323 +221,34 @@ matchday_6_fixtures = {
     "Group G": [("Lanús", "Mirassol"), ("LDU Quito", "Always Ready")],
     "Group H": [("Independiente del Valle", "Rosario Central"), ("Libertad", "Universidad Central")]
 }
-
-# --- API TRANSLATION & LOGIC ENGINE ---
-
-TEAM_API_MAPPING = {
-    "Flamengo": ["flamengo"],
-    "Independiente Medellín": ["medellin", "dim"], 
-    "Estudiantes de La Plata": ["estudiantes"],
-    "Cusco FC": ["cusco"],
-    "Coquimbo Unido": ["coquimbo"],
-    "Deportes Tolima": ["tolima"],
-    "Universitario": ["universitario"], 
-    "Nacional de Football": ["nacional"],
-    "Ind. Rivadavia": ["rivadavia"],
-    "Bolívar": ["bolivar"],
-    "Fluminense FC": ["fluminense"],
-    "Deportivo La Guaira": ["guaira"],
-    "Universidad Católica": ["catolica"],
-    "Cruzeiro": ["cruzeiro"],
-    "Boca Juniors": ["boca"],
-    "Barcelona S.C.": ["barcelona"],
-    "Corinthians": ["corinthians"],
-    "Platense": ["platense"],
-    "Independiente Santa Fe": ["santa fe"],
-    "Peñarol": ["penarol", "peñarol"],
-    "Cerro Porteño": ["cerro", "porteno"],
-    "Palmeiras": ["palmeiras"],
-    "Sporting Cristal": ["cristal"],
-    "Junior FC": ["junior"],
-    "Mirassol": ["mirassol"],
-    "LDU Quito": ["ldu", "quito"],
-    "Lanús": ["lanus"],
-    "Always Ready": ["always"],
-    "Rosario Central": ["rosario"],
-    "Independiente del Valle": ["valle", "idv"],
-    "Universidad Central": ["universidad central"], 
-    "Libertad": ["libertad"]
-}
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_polymarket_events():
-    """Paginates through Polymarket to find buried sports matches safely."""
-    url = "https://gamma-api.polymarket.com/events"
-    headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
-    
-    sports_events = []
-    
-    # Page through the top 1,500 markets (in batches of 300)
-    for offset in [0, 300, 600, 900, 1200]:
-        params = {
-            "closed": "false", 
-            "active": "true", 
-            "limit": 300, 
-            "offset": offset
-        }
-        
-        try:
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                events = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-                
-                if not events: 
-                    break # Stop if we run out of active markets
-                
-                # Memory Saver: Only keep events that look like Head-to-Head sports matches
-                for e in events:
-                    title = e.get("title", "").lower()
-                    if " vs " in title or " vs. " in title:
-                        sports_events.append(e)
-            else:
-                break
-        except Exception as e:
-            print(f"Fetch warning at offset {offset}: {e}")
-            break
-            
-    return sports_events
-
-def normalize_string(s):
-    """Removes accents and standardizes strings for matching."""
-    s = str(s).lower()
-    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
-
-def is_team_match(my_team, target_string):
-    """Strict matching using the translation dictionary."""
-    if not target_string: return False
-    target_norm = normalize_string(target_string)
-    keywords = TEAM_API_MAPPING.get(my_team, [normalize_string(my_team)])
-    for kw in keywords:
-        if normalize_string(kw) in target_norm:
-            return True
-    return False
-
-def calculate_proxy_xg(home_team_name, away_team_name, group_data):
-    """Analytically models xG based on Matchday 1-5 stats."""
-    home_stats = next(t for t in group_data if t["Team"] == home_team_name)
-    away_stats = next(t for t in group_data if t["Team"] == away_team_name)
-    
-    home_attack = home_stats["Goals Scored"] / max(1, home_stats["Played"])
-    away_defense = away_stats["Goals Received"] / max(1, away_stats["Played"])
-    away_attack = away_stats["Goals Scored"] / max(1, away_stats["Played"])
-    home_defense = home_stats["Goals Received"] / max(1, home_stats["Played"])
-    
-    home_xg = ((home_attack + away_defense) / 2) + 0.2
-    away_xg = (away_attack + home_defense) / 2
-    return max(0.1, home_xg), max(0.1, away_xg)
-
-def get_match_defaults(home_team, away_team, group_data, poly_events):
-    """Checks Polymarket for live odds, falls back to statistical proxy."""
-    defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0, "api_found": False}
-    defaults["xgh"], defaults["xga"] = calculate_proxy_xg(home_team, away_team, group_data)
-    
-    if poly_events:
-        for event in poly_events:
-            title = event.get("title", "")
-            if is_team_match(home_team, title) and is_team_match(away_team, title):
-                for market in event.get("markets", []):
-                    outcomes = market.get("outcomes", [])
-                    prices = market.get("outcomePrices", [])
-                    
-                    if len(outcomes) >= 2 and len(prices) == len(outcomes):
-                        ph, pa = 0, 0
-                        for i, outcome in enumerate(outcomes):
-                            price = float(prices[i]) * 100 
-                            if is_team_match(home_team, outcome): ph = price
-                            elif is_team_match(away_team, outcome): pa = price
-                        
-                        if ph > 0 and pa > 0:
-                            defaults["ph"] = ph
-                            defaults["pa"] = pa
-                            defaults["api_found"] = True
-                            return defaults
-    return defaults
-
-
-# --- H2H TIE-BREAKER LOGIC ---
-def calculate_standings(group_teams, all_group_matches):
-    stats = {team["Team"]: {"Played": 0, "Won": 0, "Lost": 0, "Drawn": 0, "Goals Scored": 0, "Goals Received": 0, "Points": 0, "Logo": team["Logo"]} for team in group_teams}
-    for match in all_group_matches:
-        home, away, hg, ag = match["home"], match["away"], match["home_score"], match["away_score"]
-        if home in stats and away in stats:
-            stats[home]["Played"] += 1; stats[away]["Played"] += 1
-            stats[home]["Goals Scored"] += hg; stats[home]["Goals Received"] += ag
-            stats[away]["Goals Scored"] += ag; stats[away]["Goals Received"] += hg
-            if hg > ag:
-                stats[home]["Won"] += 1; stats[home]["Points"] += 3; stats[away]["Lost"] += 1
-            elif ag > hg:
-                stats[away]["Won"] += 1; stats[away]["Points"] += 3; stats[home]["Lost"] += 1
-            else:
-                stats[home]["Drawn"] += 1; stats[away]["Drawn"] += 1; stats[home]["Points"] += 1; stats[away]["Points"] += 1
-    for team in stats:
-        stats[team]["Goal Difference"] = stats[team]["Goals Scored"] - stats[team]["Goals Received"]
-        stats[team]["Team"] = team
-    return list(stats.values())
-
-def resolve_ties(teams_list, all_group_matches):
-    points_groups = {}
-    for team in teams_list:
-        points = team["Points"]
-        if points not in points_groups: points_groups[points] = []
-        points_groups[points].append(team)
-    final_sorted_group = []
-    for points in sorted(points_groups.keys(), reverse=True):
-        tied_teams = points_groups[points]
-        if len(tied_teams) == 1:
-            final_sorted_group.append(tied_teams[0])
-            continue
-        tied_team_names = [t["Team"] for t in tied_teams]
-        h2h_matches = [m for m in all_group_matches if m["home"] in tied_team_names and m["away"] in tied_team_names]
-        h2h_stats = calculate_standings(tied_teams, h2h_matches)
-        for ht in h2h_stats:
-            orig = next(t for t in tied_teams if t["Team"] == ht["Team"])
-            ht["Total Goal Difference"] = orig["Goal Difference"]
-            ht["Total Goals Scored"] = orig["Goals Scored"]
-            ht["Original Data"] = orig 
-        h2h_stats.sort(key=lambda x: (x["Points"], x["Goal Difference"], x["Goals Scored"], x["Original Data"]["Points"], x["Total Goal Difference"], x["Total Goals Scored"]), reverse=True)
-        for sorted_team in h2h_stats:
-            final_sorted_group.append(sorted_team["Original Data"])
-    for i, team in enumerate(final_sorted_group):
-        team["Position"] = i + 1
-    return final_sorted_group
-
-def simulate_match_randomly(ph, pt, pa, xgh, xga):
-    total_p = ph + pt + pa
-    p_home, p_tie, p_away = (ph/total_p, pt/total_p, pa/total_p) if total_p > 0 else (0.334, 0.333, 0.333)
-    outcome = np.random.choice(['H', 'D', 'A'], p=[p_home, p_tie, p_away])
-    for _ in range(100):
-        hg = np.random.poisson(xgh)
-        ag = np.random.poisson(xga)
-        if outcome == 'H' and hg > ag: return hg, ag
-        if outcome == 'D' and hg == ag: return hg, ag
-        if outcome == 'A' and hg < ag: return hg, ag
-    if outcome == 'H': return 1, 0
-    if outcome == 'D': return 0, 0
-    return 0, 1
-
-
-# --- MONTE CARLO SIMULATOR UI ---
-st.header("🎲 Matchday 6 Monte Carlo Simulator")
-
-# --- POLYMARKET STATUS PANEL & DEBUGGER ---
-poly_events = fetch_polymarket_events()
-
-colA, colB = st.columns([3, 1])
-with colA:
-    if poly_events is None:
-        st.error("🔴 Connection Error: Could not reach Polymarket. Using statistical defaults.")
-    elif len(poly_events) == 0:
-        st.warning("🟡 No Markets Found: Polymarket has no active events right now. Using statistical defaults.")
-    else:
-        st.success(f"🟢 Polymarket API Connected: Scanning {len(poly_events)} open prediction markets for probabilities.")
-with colB:
-    if st.button("🔄 Force Refresh API Data"):
-        st.cache_data.clear()
-        st.rerun()
-
-# The Debugger to prove what Polymarket is actually sending
-with st.expander("🔍 API Debugger (See fetched Polymarket sports events)"):
-    st.write("If your teams aren't matching, check this list. If the Copa Libertadores games aren't listed here, Polymarket doesn't have a market open for them yet!")
-    if poly_events:
-        event_titles = [e.get("title", "Unknown Event") for e in poly_events]
-        st.write(event_titles)
-    else:
-        st.write("No sports events fetched.")
-
-mc_iterations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
-predictions = {}
+past_matches = [{"group": "Group A", "home": "Flamengo", "away": "Estudiantes de La Plata", "home_score": 1, "away_score": 0}]
 
 with st.form("mc_form"):
     for group_name, fixtures in matchday_6_fixtures.items():
         st.markdown(f"#### {group_name}")
         group_preds = []
-        match_cols = st.columns(2)
-        
-        for i, (home_team, away_team) in enumerate(fixtures):
-            home_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == home_team)
-            away_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == away_team)
-            
-            defaults = get_match_defaults(home_team, away_team, groups_data[group_name], poly_events)
-            
-            with match_cols[i]:
-                cols = st.columns([4, 2, 2, 2, 2, 4])
-                api_badge = "⚡" if defaults["api_found"] else ""
-                
-                with cols[0]: 
-                    st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 24px;'>
-                            <span style='font-size: 0.9em; font-weight: bold; margin-right: 8px; text-align: right;'>{api_badge} {home_team}</span>
-                            <img src='{home_logo_url}' width='28' height='28' style='border-radius: 50%;'>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                with cols[1]: ph = st.number_input("H%", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=defaults["ph"], step=1.0, format="%.0f")
-                with cols[2]: pa = st.number_input("A%", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=defaults["pa"], step=1.0, format="%.0f")
-                with cols[3]: xgh = st.number_input("HxG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=defaults["xgh"], step=0.1, format="%.1f")
-                with cols[4]: xga = st.number_input("AxG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=defaults["xga"], step=0.1, format="%.1f")
-                
-                with cols[5]: 
-                    st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 24px;'>
-                            <img src='{away_logo_url}' width='28' height='28' style='border-radius: 50%;'>
-                            <span style='font-size: 0.9em; font-weight: bold; margin-left: 8px;'>{away_team}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                pt = max(0.0, 100.0 - ph - pa)
-                group_preds.append({"group": group_name, "home": home_team, "away": away_team, "ph": ph, "pt": pt, "pa": pa, "xgh": xgh, "xga": xga})
-                
+        for i, (home, away) in enumerate(fixtures):
+            defaults = get_match_defaults(home, away, groups_data[group_name], poly_events)
+            cols = st.columns([4, 2, 2, 2, 2, 4])
+            with cols[0]: st.markdown(f"**{'⚡' if defaults['api_found'] else ''} {home}**")
+            with cols[1]: ph = st.number_input("H%", key=f"{group_name}_{i}_ph", value=defaults["ph"])
+            with cols[2]: pa = st.number_input("A%", key=f"{group_name}_{i}_pa", value=defaults["pa"])
+            with cols[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
+            with cols[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
+            with cols[5]: st.markdown(f"**{away}**")
+            group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": max(0, 100-ph-pa), "pa": pa, "xgh": xgh, "xga": xga})
         predictions[group_name] = group_preds
-        st.write("---")
-        
     run_mc = st.form_submit_button("Run Monte Carlo Analysis", type="primary")
 
-# --- EXECUTE MONTE CARLO ---
 if run_mc:
-    progress = st.progress(0)
-    status_text = st.empty()
     mc_results = {g: {t["Team"]: {1:0, 2:0, 3:0, 4:0} for t in groups_data[g]} for g in groups_data}
+    for _ in range(mc_iterations):
+        for g_name in groups_data.keys():
+            sim_m6 = [{"home": m["home"], "away": m["away"], "home_score": hg, "away_score": ag} for m in predictions[g_name] for hg, ag in [simulate_match_randomly(m["ph"], m["pt"], m["pa"], m["xgh"], m["xga"])]]
+            sorted_s = resolve_ties(calculate_standings(groups_data[g_name], [m for m in past_matches if m["group"] == g_name] + sim_m6), sim_m6)
+            for pos, team in enumerate(sorted_s): mc_results[g_name][team["Team"]][pos + 1] += 1
     
-    for i in range(mc_iterations):
-        for group_name in groups_data.keys():
-            group_past = [m for m in past_matches if m["group"] == group_name]
-            simulated_m6 = []
-            for match in predictions[group_name]:
-                hg, ag = simulate_match_randomly(match["ph"], match["pt"], match["pa"], match["xgh"], match["xga"])
-                simulated_m6.append({"home": match["home"], "away": match["away"], "home_score": hg, "away_score": ag})
-                
-            all_matches = group_past + simulated_m6
-            raw_standings = calculate_standings(groups_data[group_name], all_matches)
-            sorted_standings = resolve_ties(raw_standings, all_matches)
-            
-            for pos, team in enumerate(sorted_standings):
-                mc_results[group_name][team["Team"]][pos + 1] += 1
-                
-        if i % max(1, mc_iterations // 10) == 0:
-            progress.progress(i / mc_iterations)
-            status_text.text(f"Running simulation {i}/{mc_iterations}...")
-            
-    progress.progress(1.0)
-    status_text.text("Simulation Complete!")
-    
-    st.header("📊 Monte Carlo Probability Matrices")
-    for group_name in groups_data.keys():
-        st.subheader(f"{group_name} Matrix")
-        res_data = []
-        for team_name, positions in mc_results[group_name].items():
-            row = {"Team": team_name}
-            for pos in [1, 2, 3, 4]:
-                row[f"{pos}º"] = f"{(positions[pos] / mc_iterations) * 100:.1f}%"
-            res_data.append(row)
-            
-        df_res = pd.DataFrame(res_data)
-        df_res["1st_val"] = df_res["1º"].str.rstrip('%').astype(float)
-        df_res["2nd_val"] = df_res["2º"].str.rstrip('%').astype(float)
-        df_res = df_res.sort_values(by=["1st_val", "2nd_val"], ascending=[False, False])
-        df_res = df_res.drop(columns=["1st_val", "2nd_val"])
-        
-        df_res["Logo"] = df_res["Team"].apply(lambda t: next(item["Logo"] for item in groups_data[group_name] if item["Team"] == t))
-        df_res = df_res[["Logo", "Team", "1º", "2º", "3º", "4º"]]
-        
-        st.dataframe(df_res, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo")}, hide_index=True, use_container_width=True)
+    for g_name in groups_data.keys():
+        st.subheader(f"{g_name} Matrix")
+        df_res = pd.DataFrame([{"Team": t, **{f"{p}º": f"{(c/mc_iterations)*100:.1f}%" for p, c in pos.items()}} for t, pos in mc_results[g_name].items()])
+        st.dataframe(df_res, hide_index=True, use_container_width=True)
