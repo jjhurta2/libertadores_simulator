@@ -68,6 +68,7 @@ groups_data = {
     ]
 }
 
+# Render current standings
 for group_name, data in groups_data.items():
     st.subheader(group_name)
     df = create_group_df(data)
@@ -112,15 +113,13 @@ def calculate_proxy_xg(home_team_name, away_team_name, group_data):
     home_stats = next(t for t in group_data if t["Team"] == home_team_name)
     away_stats = next(t for t in group_data if t["Team"] == away_team_name)
     
-    # Calculate per-game averages
     home_attack = home_stats["Goals Scored"] / max(1, home_stats["Played"])
     away_defense = away_stats["Goals Received"] / max(1, away_stats["Played"])
     
     away_attack = away_stats["Goals Scored"] / max(1, away_stats["Played"])
     home_defense = home_stats["Goals Received"] / max(1, home_stats["Played"])
     
-    # Simple proxy formula: (Own Attack + Opponent Defense) / 2
-    # Plus a standard +0.2 home field bump for the home team
+    # (Own Attack + Opponent Defense) / 2, plus +0.2 home field bump
     home_xg = ((home_attack + away_defense) / 2) + 0.2
     away_xg = (away_attack + home_defense) / 2
     
@@ -128,16 +127,15 @@ def calculate_proxy_xg(home_team_name, away_team_name, group_data):
 
 def get_match_defaults(home_team, away_team, group_data, api_odds):
     """Returns the best available default probabilities and xG."""
-    # 1. Base default fallback
     defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0}
     
-    # 2. Derive analytical xG proxy from group standings
+    # Derive analytical xG proxy
     defaults["xgh"], defaults["xga"] = calculate_proxy_xg(home_team, away_team, group_data)
     
-    # 3. Try to extract real implied probabilities from the API
+    # Extract real implied probabilities from The Odds API
     if api_odds:
         for event in api_odds:
-            # Fuzzy matching just in case API names differ slightly from our names
+            # Fuzzy match to handle slight naming differences (e.g., "Boca" vs "Boca Juniors")
             if home_team[:5].lower() in event.get("home_team", "").lower() and away_team[:5].lower() in event.get("away_team", "").lower():
                 for market in event.get("bookmakers", []):
                     for mk in market.get("markets", []):
@@ -148,13 +146,11 @@ def get_match_defaults(home_team, away_team, group_data, api_odds):
                             draw_odds = outcomes.get("Draw")
                             
                             if home_odds and away_odds and draw_odds:
-                                # Convert decimal odds to implied probabilities
                                 imp_home = 1 / home_odds
                                 imp_away = 1 / away_odds
                                 imp_draw = 1 / draw_odds
                                 total = imp_home + imp_away + imp_draw
                                 
-                                # Remove bookmaker overround (vig) to get true probability
                                 defaults["ph"] = (imp_home / total) * 100
                                 defaults["pa"] = (imp_away / total) * 100
                                 return defaults
@@ -248,7 +244,7 @@ with st.form("mc_form"):
             home_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == home_team)
             away_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == away_team)
             
-            # Fetch dynamic defaults
+            # Fetch dynamic defaults from the API and xG logic
             defaults = get_match_defaults(home_team, away_team, groups_data[group_name], live_odds)
             
             with match_cols[i]:
