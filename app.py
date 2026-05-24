@@ -126,144 +126,42 @@ with st.form("simulator_form"):
         group_preds = []
         
         for i, (home_team, away_team) in enumerate(fixtures):
+            # --- Row 1: Match Scores ---
             col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 3])
             with col1: 
                 st.markdown(f"<p style='text-align: right; margin-top: 10px;'><b>{home_team}</b></p>", unsafe_allow_html=True)
             with col2: 
-                h_score = st.number_input("Home", key=f"{group_name}_m{i}_h", min_value=0, value=0, label_visibility="collapsed")
+                h_score = st.number_input("Home Score", key=f"{group_name}_m{i}_h", min_value=0, value=0, label_visibility="collapsed")
             with col3: 
                 st.markdown("<p style='text-align: center; margin-top: 10px;'>vs</p>", unsafe_allow_html=True)
             with col4: 
-                a_score = st.number_input("Away", key=f"{group_name}_m{i}_a", min_value=0, value=0, label_visibility="collapsed")
+                a_score = st.number_input("Away Score", key=f"{group_name}_m{i}_a", min_value=0, value=0, label_visibility="collapsed")
             with col5: 
                 st.markdown(f"<p style='margin-top: 10px;'><b>{away_team}</b></p>", unsafe_allow_html=True)
+                
+            # --- Row 2: Analytics Placeholders ---
+            st.markdown("<p style='font-size: 0.85em; color: gray; margin-bottom: -15px;'>Predictive Metrics (UI Only)</p>", unsafe_allow_html=True)
+            p_col1, p_col2, p_col3, p_col4, p_col5 = st.columns(5)
+            
+            # The inputs are separated into 5 equal columns and do not affect the backend logic
+            with p_col1:
+                st.number_input("Home Win %", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=0.0, step=1.0, format="%.1f")
+            with p_col2:
+                st.number_input("Tie %", key=f"{group_name}_m{i}_pt", min_value=0.0, max_value=100.0, value=0.0, step=1.0, format="%.1f")
+            with p_col3:
+                st.number_input("Away Win %", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=0.0, step=1.0, format="%.1f")
+            with p_col4:
+                st.number_input("Home xG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=0.0, step=0.1, format="%.2f")
+            with p_col5:
+                st.number_input("Away xG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=0.0, step=0.1, format="%.2f")
             
             group_preds.append({
                 "group": group_name, "home": home_team, "away": away_team, 
                 "home_score": h_score, "away_score": a_score
             })
             
+            st.write("---") # Visual separator between matches
+
         predictions[group_name] = group_preds
-        st.write("---")
 
     simulate_button = st.form_submit_button("Simulate Final Standings", type="primary")
-
-# --- ALGORITHM: TIE-BREAKER LOGIC ---
-def calculate_standings(group_teams, all_group_matches):
-    """Calculates table stats from scratch based on a list of matches."""
-    stats = {team["Team"]: {"Played": 0, "Won": 0, "Lost": 0, "Drawn": 0, "Goals Scored": 0, "Goals Received": 0, "Points": 0, "Logo": team["Logo"]} for team in group_teams}
-    
-    for match in all_group_matches:
-        home, away = match["home"], match["away"]
-        hg, ag = match["home_score"], match["away_score"]
-        
-        if home in stats and away in stats:
-            stats[home]["Played"] += 1
-            stats[away]["Played"] += 1
-            stats[home]["Goals Scored"] += hg
-            stats[home]["Goals Received"] += ag
-            stats[away]["Goals Scored"] += ag
-            stats[away]["Goals Received"] += hg
-            
-            if hg > ag:
-                stats[home]["Won"] += 1
-                stats[home]["Points"] += 3
-                stats[away]["Lost"] += 1
-            elif ag > hg:
-                stats[away]["Won"] += 1
-                stats[away]["Points"] += 3
-                stats[home]["Lost"] += 1
-            else:
-                stats[home]["Drawn"] += 1
-                stats[away]["Drawn"] += 1
-                stats[home]["Points"] += 1
-                stats[away]["Points"] += 1
-
-    for team in stats:
-        stats[team]["Goal Difference"] = stats[team]["Goals Scored"] - stats[team]["Goals Received"]
-        stats[team]["Team"] = team
-        
-    return list(stats.values())
-
-def resolve_ties(teams_list, all_group_matches):
-    """Sorts teams using the 6-step tie-breaker rules."""
-    # First, group teams by Total Points (Rule 4 fallback)
-    points_groups = {}
-    for team in teams_list:
-        points = team["Points"]
-        if points not in points_groups:
-            points_groups[points] = []
-        points_groups[points].append(team)
-    
-    final_sorted_group = []
-    
-    # Sort the point tiers from highest to lowest
-    for points in sorted(points_groups.keys(), reverse=True):
-        tied_teams = points_groups[points]
-        
-        if len(tied_teams) == 1:
-            final_sorted_group.append(tied_teams[0])
-            continue
-            
-        # We have a tie! Calculate a H2H mini-table (Rules 1, 2, 3)
-        tied_team_names = [t["Team"] for t in tied_teams]
-        h2h_matches = [m for m in all_group_matches if m["home"] in tied_team_names and m["away"] in tied_team_names]
-        
-        # Calculate stats ONLY for games between the tied teams
-        h2h_stats = calculate_standings(tied_teams, h2h_matches)
-        
-        # Map original total stats to H2H stats for rules 4, 5, 6
-        for ht in h2h_stats:
-            orig = next(t for t in tied_teams if t["Team"] == ht["Team"])
-            ht["Total Goal Difference"] = orig["Goal Difference"]
-            ht["Total Goals Scored"] = orig["Goals Scored"]
-            ht["Original Data"] = orig # Keep the aggregate data to display later
-            
-        # Sort the mini-table based on your 6 criteria
-        h2h_stats.sort(key=lambda x: (
-            x["Points"],                  # 1. H2H Points
-            x["Goal Difference"],         # 2. H2H Goal Difference
-            x["Goals Scored"],            # 3. H2H Goals Scored
-            x["Original Data"]["Points"], # 4. Total Points (they are tied here, but kept for logic flow)
-            x["Total Goal Difference"],   # 5. Total Goal Difference
-            x["Total Goals Scored"]       # 6. Total Goals Scored
-        ), reverse=True)
-        
-        for sorted_team in h2h_stats:
-            final_sorted_group.append(sorted_team["Original Data"])
-            
-    # Assign new positions
-    for i, team in enumerate(final_sorted_group):
-        team["Position"] = i + 1
-        
-    return final_sorted_group
-
-
-# --- RENDER SIMULATED RESULTS ---
-if simulate_button:
-    st.success("Simulation Complete! Scroll down to see the final standings.")
-    st.header("🏁 Simulated Final Standings")
-    
-    for group_name in groups_data.keys():
-        st.subheader(group_name)
-        
-        # Combine real past matches with user's Matchday 6 predictions
-        group_past = [m for m in past_matches if m["group"] == group_name]
-        group_simulated = predictions[group_name]
-        all_matches = group_past + group_simulated
-        
-        # Calculate new aggregates and apply the tie-breaker sort
-        raw_standings = calculate_standings(groups_data[group_name], all_matches)
-        sorted_standings = resolve_ties(raw_standings, all_matches)
-        
-        # Display the newly sorted dataframe
-        sim_df = create_group_df(sorted_standings)
-        st.dataframe(
-            sim_df,
-            column_config={
-                "Logo": st.column_config.ImageColumn("Logo", help="Team Logo"),
-                "Position": st.column_config.NumberColumn("Pos", format="%d"),
-            },
-            hide_index=True,
-            use_container_width=True
-        )
