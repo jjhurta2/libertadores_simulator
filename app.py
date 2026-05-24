@@ -142,150 +142,37 @@ def resolve_ties(teams_list, all_group_matches):
         team["Position"] = i + 1
     return final_sorted_group
 
-# --- SIMULATOR SECTION ---
-st.header("🔮 Matchday 6 Simulator")
-st.markdown("Enter the scores for the final matches. The tables will recalculate using official H2H tie-breaker rules.")
-
-predictions = {}
-
-with st.form("simulator_form"):
-    for group_name, fixtures in matchday_6_fixtures.items():
-        st.subheader(group_name)
-        group_preds = []
-        
-        for i, (home_team, away_team) in enumerate(fixtures):
-            # Row 1: Scores
-            col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 3])
-            with col1: st.markdown(f"<p style='text-align: right; margin-top: 10px;'><b>{home_team}</b></p>", unsafe_allow_html=True)
-            with col2: h_score = st.number_input("Home Score", key=f"{group_name}_m{i}_h", min_value=0, value=0, label_visibility="collapsed")
-            with col3: st.markdown("<p style='text-align: center; margin-top: 10px;'>vs</p>", unsafe_allow_html=True)
-            with col4: a_score = st.number_input("Away Score", key=f"{group_name}_m{i}_a", min_value=0, value=0, label_visibility="collapsed")
-            with col5: st.markdown(f"<p style='margin-top: 10px;'><b>{away_team}</b></p>", unsafe_allow_html=True)
-                
-            # Row 2: Analytics
-            st.markdown("<p style='font-size: 0.85em; color: gray; margin-bottom: -15px;'>Predictive Metrics (For Monte Carlo)</p>", unsafe_allow_html=True)
-            p_col1, p_col2, p_col3, p_col4, p_col5 = st.columns(5)
-            with p_col1: ph = st.number_input("Home Win %", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=50.0, step=1.0, format="%.1f")
-            with p_col2: pt = st.number_input("Tie %", key=f"{group_name}_m{i}_pt", min_value=0.0, max_value=100.0, value=20.0, step=1.0, format="%.1f")
-            with p_col3: pa = st.number_input("Away Win %", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=30.0, step=1.0, format="%.1f")
-            with p_col4: xgh = st.number_input("Home xG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=2.0, step=0.1, format="%.2f")
-            with p_col5: xga = st.number_input("Away xG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=1.0, step=0.1, format="%.2f")
-            
-            group_preds.append({
-                "group": group_name, "home": home_team, "away": away_team, 
-                "home_score": h_score, "away_score": a_score,
-                "ph": ph, "pt": pt, "pa": pa, "xgh": xgh, "xga": xga
-            })
-            st.write("---")
-        predictions[group_name] = group_preds
-
-    simulate_button = st.form_submit_button("Simulate Final Standings", type="primary")
-
-if simulate_button:
-    st.success("Simulation Complete! Scroll down to see the final standings.")
-    st.header("🏁 Simulated Final Standings")
-    
-    for group_name in groups_data.keys():
-        st.subheader(group_name)
-        group_past = [m for m in past_matches if m["group"] == group_name]
-        group_simulated = predictions[group_name]
-        all_matches = group_past + group_simulated
-        
-        raw_standings = calculate_standings(groups_data[group_name], all_matches)
-        sorted_standings = resolve_ties(raw_standings, all_matches)
-        
-        sim_df = create_group_df(sorted_standings)
-        st.dataframe(sim_df, column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Position": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True)
-
-# --- MONTE CARLO ENGINE ---
-st.divider()
-st.header("🎲 Monte Carlo Simulator")
-st.markdown("Run 10,000 statistical simulations using the **Predictive Metrics** you entered above to calculate the true probability of each team's final placement. *(Note: Please ensure you click 'Simulate Final Standings' above first to lock in any probability changes!)*")
-
-mc_iterations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
-run_mc = st.button("Run Monte Carlo", type="primary")
-
 def simulate_match_randomly(ph, pt, pa, xgh, xga):
-    # 1. Normalize user probability inputs
     total_p = ph + pt + pa
     p_home, p_tie, p_away = (ph/total_p, pt/total_p, pa/total_p) if total_p > 0 else (0.334, 0.333, 0.333)
-    
-    # 2. Select Outcome based on user's Win/Draw/Loss %
     outcome = np.random.choice(['H', 'D', 'A'], p=[p_home, p_tie, p_away])
-    
-    # 3. Generate goals using Poisson based on user's xG until they fit the outcome
     for _ in range(100):
         hg = np.random.poisson(xgh)
         ag = np.random.poisson(xga)
         if outcome == 'H' and hg > ag: return hg, ag
         if outcome == 'D' and hg == ag: return hg, ag
         if outcome == 'A' and hg < ag: return hg, ag
-        
-    # Fallback if the xG provided is mathematically too extreme to fit the probability outcome
     if outcome == 'H': return 1, 0
     if outcome == 'D': return 0, 0
     return 0, 1
 
-if run_mc:
-    if not predictions:
-        st.warning("Please click the 'Simulate Final Standings' button above to initialize the data before running the Monte Carlo.")
-    else:
-        progress = st.progress(0)
-        status_text = st.empty()
-        
-        # Results matrix: group -> team -> position -> count
-        mc_results = {g: {t["Team"]: {1:0, 2:0, 3:0, 4:0} for t in groups_data[g]} for g in groups_data}
-        
-        for i in range(mc_iterations):
-            for group_name in groups_data.keys():
-                group_past = [m for m in past_matches if m["group"] == group_name]
-                
-                # Simulate Matchday 6 dynamically
-                simulated_m6 = []
-                for match in predictions[group_name]:
-                    hg, ag = simulate_match_randomly(match["ph"], match["pt"], match["pa"], match["xgh"], match["xga"])
-                    simulated_m6.append({"home": match["home"], "away": match["away"], "home_score": hg, "away_score": ag})
-                    
-                all_matches = group_past + simulated_m6
-                raw_standings = calculate_standings(groups_data[group_name], all_matches)
-                sorted_standings = resolve_ties(raw_standings, all_matches)
-                
-                for pos, team in enumerate(sorted_standings):
-                    mc_results[group_name][team["Team"]][pos + 1] += 1
-                    
-            if i % (mc_iterations // 10) == 0:
-                progress.progress(i / mc_iterations)
-                status_text.text(f"Running simulation {i}/{mc_iterations}...")
-                
-        progress.progress(1.0)
-        status_text.text("Simulation Complete!")
-        
-        # Display the Matrix
-        for group_name in groups_data.keys():
-            st.subheader(f"{group_name} Probabilities")
-            
-            res_data = []
-            for team_name, positions in mc_results[group_name].items():
-                row = {"Team": team_name}
-                for pos in [1, 2, 3, 4]:
-                    row[f"{pos}º"] = f"{(positions[pos] / mc_iterations) * 100:.1f}%"
-                res_data.append(row)
-                
-            df_res = pd.DataFrame(res_data)
-            
-            # Sort dataframe mathematically by highest probability of finishing 1st
-            df_res["1st_val"] = df_res["1º"].str.rstrip('%').astype(float)
-            df_res["2nd_val"] = df_res["2º"].str.rstrip('%').astype(float)
-            df_res = df_res.sort_values(by=["1st_val", "2nd_val"], ascending=[False, False])
-            df_res = df_res.drop(columns=["1st_val", "2nd_val"])
-            
-            # Add logos back into the final table
-            df_res["Logo"] = df_res["Team"].apply(lambda t: next(item["Logo"] for item in groups_data[group_name] if item["Team"] == t))
-            df_res = df_res[["Logo", "Team", "1º", "2º", "3º", "4º"]]
-            
-            st.dataframe(
-                df_res,
-                column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo")},
-                hide_index=True,
-                use_container_width=True
-            )
+# --- MONTE CARLO SIMULATOR UI ---
+st.header("🎲 Matchday 6 Monte Carlo Simulator")
+st.markdown("Adjust the predictive metrics for the final matches to simulate the outcomes using official H2H tie-breaker rules.")
+
+mc_iterations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
+predictions = {}
+
+with st.form("mc_form"):
+    for group_name, fixtures in matchday_6_fixtures.items():
+        st.markdown(f"#### {group_name}")
+        group_preds = []
+        for i, (home_team, away_team) in enumerate(fixtures):
+            # Ultra-concise row layout
+            cols = st.columns([2, 1, 1, 1, 1, 1, 2])
+            with cols[0]: st.markdown(f"<p style='text-align: right; margin-top: 28px;'><b>{home_team}</b></p>", unsafe_allow_html=True)
+            with cols[1]: ph = st.number_input("H%", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=50.0, step=1.0, format="%.0f")
+            with cols[2]: pt = st.number_input("T%", key=f"{group_name}_m{i}_pt", min_value=0.0, max_value=100.0, value=20.0, step=1.0, format="%.0f")
+            with cols[3]: pa = st.number_input("A%", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=30.0, step=1.0, format="%.0f")
+            with cols[4]: xgh = st.number_input("HxG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=2.0, step=0.1, format="%.1f")
+            with cols[5]: xga = st.number_input("AxG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=1.0, step=0.1, format="
