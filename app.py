@@ -172,17 +172,38 @@ with st.form("mc_form"):
         match_cols = st.columns(2)
         
         for i, (home_team, away_team) in enumerate(fixtures):
+            # Fetch the logo URLs for the current match
+            home_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == home_team)
+            away_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == away_team)
+            
             with match_cols[i]:
-                # Compact sub-columns without the T% input
-                cols = st.columns([3, 2, 2, 2, 2, 3])
-                with cols[0]: st.markdown(f"<p style='text-align: right; margin-top: 28px; font-size: 0.9em;'><b>{home_team}</b></p>", unsafe_allow_html=True)
+                cols = st.columns([4, 2, 2, 2, 2, 4])
+                
+                # Render Home Team with Logo
+                with cols[0]: 
+                    st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 24px;'>
+                            <span style='font-size: 0.9em; font-weight: bold; margin-right: 8px; text-align: right;'>{home_team}</span>
+                            <img src='{home_logo_url}' width='28' height='28' style='border-radius: 50%;'>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                # Inputs
                 with cols[1]: ph = st.number_input("H%", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=50.0, step=1.0, format="%.0f")
                 with cols[2]: pa = st.number_input("A%", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=30.0, step=1.0, format="%.0f")
                 with cols[3]: xgh = st.number_input("HxG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=2.0, step=0.1, format="%.1f")
                 with cols[4]: xga = st.number_input("AxG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=1.0, step=0.1, format="%.1f")
-                with cols[5]: st.markdown(f"<p style='margin-top: 28px; font-size: 0.9em;'><b>{away_team}</b></p>", unsafe_allow_html=True)
                 
-                # Automatically infer the tie percentage (ensuring it doesn't drop below 0 if H% + A% > 100)
+                # Render Away Team with Logo
+                with cols[5]: 
+                    st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 24px;'>
+                            <img src='{away_logo_url}' width='28' height='28' style='border-radius: 50%;'>
+                            <span style='font-size: 0.9em; font-weight: bold; margin-left: 8px;'>{away_team}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                # Automatically infer the tie percentage
                 pt = max(0.0, 100.0 - ph - pa)
                 
                 group_preds.append({
