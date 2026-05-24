@@ -69,6 +69,7 @@ groups_data = {
     ]
 }
 
+# Render current standings
 for group_name, data in groups_data.items():
     st.subheader(group_name)
     df = create_group_df(data)
@@ -76,6 +77,7 @@ for group_name, data in groups_data.items():
 
 st.divider()
 
+# --- HISTORICAL DATA (Matchdays 1-5) ---
 past_matches = [
     {"group": "Group A", "home": "Flamengo", "away": "Estudiantes de La Plata", "home_score": 1, "away_score": 0},
     {"group": "Group A", "home": "Cusco FC", "away": "Independiente Medellín", "home_score": 2, "away_score": 3},
@@ -92,9 +94,8 @@ matchday_6_fixtures = {
     "Group H": [("Independiente del Valle", "Rosario Central"), ("Libertad", "Universidad Central")]
 }
 
-# --- API NAME TRANSLATION DICTIONARY ---
-# Maps your app's exact team names to unique, identifying keywords 
-# to prevent cross-matching "Independiente" or "Universidad" teams.
+# --- API TRANSLATION & LOGIC ENGINE ---
+
 TEAM_API_MAPPING = {
     "Flamengo": ["flamengo"],
     "Independiente Medellín": ["medellin", "dim"], 
@@ -130,27 +131,83 @@ TEAM_API_MAPPING = {
     "Libertad": ["libertad"]
 }
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_polymarket_events():
+    """Fetches active events safely to prevent Streamlit memory crashes."""
+    url = "https://gamma-api.polymarket.com/events"
+    params = {"closed": "false", "active": "true", "limit": 300}
+    headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
+    
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, dict) and "data" in data:
+                return data["data"]
+            elif isinstance(data, list):
+                return data
+        return []
+    except:
+        return []
+
 def normalize_string(s):
-    """Removes accents (á, é, ñ) and converts to lowercase for flawless matching."""
+    """Removes accents and standardizes strings for matching."""
     s = str(s).lower()
     return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
 
 def is_team_match(my_team, target_string):
     """Strict matching using the translation dictionary."""
     if not target_string: return False
-    
     target_norm = normalize_string(target_string)
     keywords = TEAM_API_MAPPING.get(my_team, [normalize_string(my_team)])
-    
-    # Check if any of our specific defining keywords exist in the API string
     for kw in keywords:
         if normalize_string(kw) in target_norm:
             return True
-            
     return False
 
+def calculate_proxy_xg(home_team_name, away_team_name, group_data):
+    """Analytically models xG based on Matchday 1-5 stats."""
+    home_stats = next(t for t in group_data if t["Team"] == home_team_name)
+    away_stats = next(t for t in group_data if t["Team"] == away_team_name)
+    
+    home_attack = home_stats["Goals Scored"] / max(1, home_stats["Played"])
+    away_defense = away_stats["Goals Received"] / max(1, away_stats["Played"])
+    away_attack = away_stats["Goals Scored"] / max(1, away_stats["Played"])
+    home_defense = home_stats["Goals Received"] / max(1, home_stats["Played"])
+    
+    home_xg = ((home_attack + away_defense) / 2) + 0.2
+    away_xg = (away_attack + home_defense) / 2
+    return max(0.1, home_xg), max(0.1, away_xg)
 
-# --- TIE-BREAKER LOGIC ---
+def get_match_defaults(home_team, away_team, group_data, poly_events):
+    """Checks Polymarket for live odds, falls back to statistical proxy."""
+    defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0, "api_found": False}
+    defaults["xgh"], defaults["xga"] = calculate_proxy_xg(home_team, away_team, group_data)
+    
+    if poly_events:
+        for event in poly_events:
+            title = event.get("title", "")
+            if is_team_match(home_team, title) and is_team_match(away_team, title):
+                for market in event.get("markets", []):
+                    outcomes = market.get("outcomes", [])
+                    prices = market.get("outcomePrices", [])
+                    
+                    if len(outcomes) >= 2 and len(prices) == len(outcomes):
+                        ph, pa = 0, 0
+                        for i, outcome in enumerate(outcomes):
+                            price = float(prices[i]) * 100 
+                            if is_team_match(home_team, outcome): ph = price
+                            elif is_team_match(away_team, outcome): pa = price
+                        
+                        if ph > 0 and pa > 0:
+                            defaults["ph"] = ph
+                            defaults["pa"] = pa
+                            defaults["api_found"] = True
+                            return defaults
+    return defaults
+
+
+# --- H2H TIE-BREAKER LOGIC ---
 def calculate_standings(group_teams, all_group_matches):
     stats = {team["Team"]: {"Played": 0, "Won": 0, "Lost": 0, "Drawn": 0, "Goals Scored": 0, "Goals Received": 0, "Points": 0, "Logo": team["Logo"]} for team in group_teams}
     for match in all_group_matches:
@@ -244,13 +301,10 @@ with st.form("mc_form"):
             home_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == home_team)
             away_logo_url = next(item["Logo"] for item in groups_data[group_name] if item["Team"] == away_team)
             
-            # Grabs live market prices if they exist, otherwise falls back to our smart proxy
             defaults = get_match_defaults(home_team, away_team, groups_data[group_name], poly_events)
             
             with match_cols[i]:
                 cols = st.columns([4, 2, 2, 2, 2, 4])
-                
-                # Check mark if Polymarket odds were mapped
                 api_badge = "⚡" if defaults["api_found"] else ""
                 
                 with cols[0]: 
