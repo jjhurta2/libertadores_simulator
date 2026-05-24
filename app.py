@@ -139,21 +139,21 @@ with st.form("simulator_form"):
             with col5: 
                 st.markdown(f"<p style='margin-top: 10px;'><b>{away_team}</b></p>", unsafe_allow_html=True)
                 
-            # --- Row 2: Analytics Placeholders ---
+          # --- Row 2: Analytics Placeholders ---
             st.markdown("<p style='font-size: 0.85em; color: gray; margin-bottom: -15px;'>Predictive Metrics (UI Only)</p>", unsafe_allow_html=True)
             p_col1, p_col2, p_col3, p_col4, p_col5 = st.columns(5)
             
             # The inputs are separated into 5 equal columns and do not affect the backend logic
             with p_col1:
-                st.number_input("Home Win %", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=0.0, step=1.0, format="%.1f")
+                st.number_input("Home Win %", key=f"{group_name}_m{i}_ph", min_value=0.0, max_value=100.0, value=50.0, step=1.0, format="%.1f")
             with p_col2:
-                st.number_input("Tie %", key=f"{group_name}_m{i}_pt", min_value=0.0, max_value=100.0, value=0.0, step=1.0, format="%.1f")
+                st.number_input("Tie %", key=f"{group_name}_m{i}_pt", min_value=0.0, max_value=100.0, value=20.0, step=1.0, format="%.1f")
             with p_col3:
-                st.number_input("Away Win %", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=0.0, step=1.0, format="%.1f")
+                st.number_input("Away Win %", key=f"{group_name}_m{i}_pa", min_value=0.0, max_value=100.0, value=30.0, step=1.0, format="%.1f")
             with p_col4:
-                st.number_input("Home xG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=0.0, step=0.1, format="%.2f")
+                st.number_input("Home xG", key=f"{group_name}_m{i}_xgh", min_value=0.0, value=2.0, step=0.1, format="%.2f")
             with p_col5:
-                st.number_input("Away xG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=0.0, step=0.1, format="%.2f")
+                st.number_input("Away xG", key=f"{group_name}_m{i}_xga", min_value=0.0, value=1.0, step=0.1, format="%.2f")
             
             group_preds.append({
                 "group": group_name, "home": home_team, "away": away_team, 
