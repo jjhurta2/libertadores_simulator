@@ -92,76 +92,62 @@ matchday_6_fixtures = {
     "Group H": [("Independiente del Valle", "Rosario Central"), ("Libertad", "Universidad Central")]
 }
 
-# --- POLYMARKET & ANALYTICS ENGINE ---
+# --- API NAME TRANSLATION DICTIONARY ---
+# Maps your app's exact team names to unique, identifying keywords 
+# to prevent cross-matching "Independiente" or "Universidad" teams.
+TEAM_API_MAPPING = {
+    "Flamengo": ["flamengo"],
+    "Independiente Medellín": ["medellin", "dim"], 
+    "Estudiantes de La Plata": ["estudiantes"],
+    "Cusco FC": ["cusco"],
+    "Coquimbo Unido": ["coquimbo"],
+    "Deportes Tolima": ["tolima"],
+    "Universitario": ["universitario"], 
+    "Nacional de Football": ["nacional"],
+    "Ind. Rivadavia": ["rivadavia"],
+    "Bolívar": ["bolivar"],
+    "Fluminense FC": ["fluminense"],
+    "Deportivo La Guaira": ["guaira"],
+    "Universidad Católica": ["catolica"],
+    "Cruzeiro": ["cruzeiro"],
+    "Boca Juniors": ["boca"],
+    "Barcelona S.C.": ["barcelona"],
+    "Corinthians": ["corinthians"],
+    "Platense": ["platense"],
+    "Independiente Santa Fe": ["santa fe"],
+    "Peñarol": ["penarol", "peñarol"],
+    "Cerro Porteño": ["cerro", "porteno"],
+    "Palmeiras": ["palmeiras"],
+    "Sporting Cristal": ["cristal"],
+    "Junior FC": ["junior"],
+    "Mirassol": ["mirassol"],
+    "LDU Quito": ["ldu", "quito"],
+    "Lanús": ["lanus"],
+    "Always Ready": ["always"],
+    "Rosario Central": ["rosario"],
+    "Independiente del Valle": ["valle", "idv"],
+    "Universidad Central": ["universidad central"], 
+    "Libertad": ["libertad"]
+}
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_polymarket_events():
-    """Fetches active events from the open Polymarket Gamma API."""
-    url = "https://gamma-api.polymarket.com/events"
-    params = {"closed": "false", "active": "true"}
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except:
-        return None
+def normalize_string(s):
+    """Removes accents (á, é, ñ) and converts to lowercase for flawless matching."""
+    s = str(s).lower()
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
 
 def is_team_match(my_team, target_string):
-    """Fuzzy matching to link our team names to Polymarket's event titles/outcomes."""
+    """Strict matching using the translation dictionary."""
     if not target_string: return False
-    mt = my_team.lower()
-    ts = target_string.lower()
-    if mt in ts: return True
     
-    # Check significant words (e.g. "Boca" from "Boca Juniors")
-    my_words = {w for w in mt.split() if len(w) > 3}
-    for w in my_words:
-        if w in ts: return True
+    target_norm = normalize_string(target_string)
+    keywords = TEAM_API_MAPPING.get(my_team, [normalize_string(my_team)])
+    
+    # Check if any of our specific defining keywords exist in the API string
+    for kw in keywords:
+        if normalize_string(kw) in target_norm:
+            return True
+            
     return False
-
-def calculate_proxy_xg(home_team_name, away_team_name, group_data):
-    """Calculates Implied xG using the historical stats already in the app."""
-    home_stats = next(t for t in group_data if t["Team"] == home_team_name)
-    away_stats = next(t for t in group_data if t["Team"] == away_team_name)
-    
-    home_attack = home_stats["Goals Scored"] / max(1, home_stats["Played"])
-    away_defense = away_stats["Goals Received"] / max(1, away_stats["Played"])
-    away_attack = away_stats["Goals Scored"] / max(1, away_stats["Played"])
-    home_defense = home_stats["Goals Received"] / max(1, home_stats["Played"])
-    
-    home_xg = ((home_attack + away_defense) / 2) + 0.2
-    away_xg = (away_attack + home_defense) / 2
-    return max(0.1, home_xg), max(0.1, away_xg)
-
-def get_match_defaults(home_team, away_team, group_data, poly_events):
-    """Searches Polymarket order books for crowd-sourced match probabilities."""
-    defaults = {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0, "api_found": False}
-    defaults["xgh"], defaults["xga"] = calculate_proxy_xg(home_team, away_team, group_data)
-    
-    if poly_events:
-        for event in poly_events:
-            title = event.get("title", "")
-            # Look for an event involving both teams
-            if is_team_match(home_team, title) and is_team_match(away_team, title):
-                for market in event.get("markets", []):
-                    outcomes = market.get("outcomes", [])
-                    prices = market.get("outcomePrices", [])
-                    
-                    if len(outcomes) >= 2 and len(prices) == len(outcomes):
-                        ph, pa = 0, 0
-                        # Map Polymarket shares/prices to probability percentages
-                        for i, outcome in enumerate(outcomes):
-                            price = float(prices[i]) * 100 
-                            if is_team_match(home_team, outcome): ph = price
-                            elif is_team_match(away_team, outcome): pa = price
-                        
-                        if ph > 0 and pa > 0:
-                            defaults["ph"] = ph
-                            defaults["pa"] = pa
-                            defaults["api_found"] = True
-                            return defaults
-    return defaults
 
 
 # --- TIE-BREAKER LOGIC ---
