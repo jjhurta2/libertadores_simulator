@@ -86,7 +86,7 @@ for i in range(0, len(group_items), 2):
 
 st.divider()
 
-# --- LOGIC ---
+# --- SIMULATOR BACKEND ---
 TEAM_API_MAPPING = {
     "Flamengo": ["flamengo"], "Independiente Medellín": ["medellin", "dim"], 
     "Estudiantes de La Plata": ["estudiantes"], "Cusco FC": ["cusco"],
@@ -198,12 +198,12 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
     return (1, 0) if outcome == 'H' else (0, 0) if outcome == 'D' else (0, 1)
 
 # --- UI ---
-st.header("🎲 Monte Carlo Simulator")
+st.header("🎲 Matchday 6 Monte Carlo Simulator")
 poly_events = fetch_polymarket_events()
 colA, colB = st.columns([3, 1])
-with colA: st.write("🟢 Polymarket API Connected") if poly_events else st.write("🟡 Polymarket API Unavailable")
-with colB: 
-    if st.button("🔄 Refresh API"): st.cache_data.clear(); st.rerun()
+if poly_events: colA.write("🟢 Polymarket API Connected") 
+else: colA.write("🟡 Polymarket API Unavailable")
+if colB.button("🔄 Refresh"): st.cache_data.clear(); st.rerun()
 
 mc_iterations = st.number_input("Iterations", value=1000)
 predictions = {}
@@ -245,6 +245,7 @@ if run_mc:
             sim_m6 = [{"home": m["home"], "away": m["away"], "home_score": hg, "away_score": ag} for m in predictions[g_name] for hg, ag in [simulate_match_randomly(m["ph"], m["pt"], m["pa"], m["xgh"], m["xga"])]]
             sorted_s = resolve_ties(calculate_standings(groups_data[g_name], [m for m in past_matches if m["group"] == g_name] + sim_m6), sim_m6)
             for pos, team in enumerate(sorted_s): mc_results[g_name][team["Team"]][pos + 1] += 1
+    
     for g_name in groups_data.keys():
         st.subheader(f"{g_name} Matrix")
         df_res = pd.DataFrame([{"Team": t, **{f"{p}º": f"{(c/mc_iterations)*100:.1f}%" for p, c in pos.items()}} for t, pos in mc_results[g_name].items()])
