@@ -310,38 +310,22 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
 
 # --- API HELPERS ---
 TEAM_MAP = {
-    "Flamengo": "Flamengo-RJ", 
-    "DIM": "Independiente Medellín",
-    "Estudiantes": "Estudiantes La Plata", 
-    "Cusco": "Cusco FC",
-    "Coquimbo Unido": "Coquimbo Unido", 
-    "Deportes Tolima": "Deportes Tolima",
-    "Universitario": "Club Universitario de Deportes", 
-    "Nacional": "Nacional de Montevideo",
-    "Ind. Rivadavia": "Independiente Rivadavia", 
-    "Bolívar": "Club Bolívar",
-    "Fluminense": "Fluminense FC", 
-    "Deportivo La Guaira": "Deportivo La Guaira F.C.",
-    "Universidad Católica": "Club Deportivo Universidad Católica", 
-    "Cruzeiro": "Cruzeiro Esporte Clube",
-    "Boca Juniors": "Boca Juniors", 
-    "Barcelona S.C.": "Barcelona S.C.",
-    "Corinthians": "Sport Club Corinthians Paulista", 
-    "Platense": "Club Atlético Platense",
-    "Independiente Santa Fe": "Independiente Santa Fe", 
-    "Peñarol": "Club Atlético Peñarol",
-    "Cerro Porteño": "Club Cerro Porteño", 
-    "Palmeiras": "SE Palmeiras",
-    "Sporting Cristal": "Club Sporting Cristal", 
-    "Junior FC": "Junior FC",
-    "Mirassol": "Mirassol Futebol Clube", 
-    "LDU Quito": "LDU Quito",
-    "Lanús": "Lanus", 
-    "Always Ready": "Club Always Ready",
-    "Rosario Central": "Club Atlético Rosario Central", 
-    "Independiente del Valle": "Independiente del Valle",
-    "Universidad Central": "Universidad Central de Venezuela F.C.", 
-    "Libertad": "Club Libertad",
+    "Flamengo": "Flamengo", "DIM": "Independiente Medellín",
+    "Estudiantes": "Estudiantes de La Plata", "Cusco": "Cusco FC",
+    "Coquimbo Unido": "Coquimbo Unido", "Deportes Tolima": "Deportes Tolima",
+    "Universitario": "Club Universitario de Deportes", "Nacional": "Club Nacional de Football",
+    "Ind. Rivadavia": "Independiente Rivadavia", "Bolívar": "Club Bolívar",
+    "Fluminense": "Fluminense FC", "Deportivo La Guaira": "Deportivo La Guaira F.C.",
+    "Universidad Católica": "Club Deportivo Universidad Católica", "Cruzeiro": "Cruzeiro Esporte Clube",
+    "Boca Juniors": "Boca Juniors", "Barcelona S.C.": "Barcelona S.C.",
+    "Corinthians": "Sport Club Corinthians Paulista", "Platense": "Club Atlético Platense",
+    "Independiente Santa Fe": "Independiente Santa Fe", "Peñarol": "Club Atlético Peñarol",
+    "Cerro Porteño": "Club Cerro Porteño", "Palmeiras": "SE Palmeiras",
+    "Sporting Cristal": "Club Sporting Cristal", "Junior FC": "Junior FC",
+    "Mirassol": "Mirassol Futebol Clube", "LDU Quito": "LDU Quito",
+    "Lanús": "Club Atlético Lanús", "Always Ready": "Club Always Ready",
+    "Rosario Central": "Club Atlético Rosario Central", "Independiente del Valle": "Independiente del Valle",
+    "Universidad Central": "Universidad Central de Venezuela F.C.", "Libertad": "Club Libertad",
 }
 
 @st.cache_data(ttl=3600)
@@ -393,16 +377,22 @@ def get_fair_probabilities(home_team, api_odds_data):
     for match in api_odds_data:
         if not match.get("bookmakers"):
             continue
-        if search_name.lower() in match["home_team"].lower():
+        # Check if this match is for our home team (case-insensitive comparison)
+        if search_name.lower() == match["home_team"].lower():
             try:
+                # Get the first bookmaker's odds
                 outcomes = match["bookmakers"][0]["markets"][0]["outcomes"]
+                
+                # Build odds dictionary - the outcome names are the actual team names from API
                 odds = {o["name"]: o["price"] for o in outcomes}
+                
+                # Look up probabilities using the exact team names from the API response
                 p_home = 1 / odds.get(match["home_team"], 2.0)
                 p_away = 1 / odds.get(match["away_team"], 2.0)
                 p_draw = 1 / odds.get("Draw", 3.0)
-                total  = p_home + p_away + p_draw
+                total = p_home + p_away + p_draw
                 return (p_home/total)*100, (p_away/total)*100, (p_draw/total)*100
-            except (KeyError, ZeroDivisionError, TypeError):
+            except (KeyError, ZeroDivisionError, TypeError) as e:
                 break
 
     return 50.0, 20.0, 30.0
