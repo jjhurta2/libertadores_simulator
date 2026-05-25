@@ -14,9 +14,7 @@ def get_api_key():
 
 st.set_page_config(page_title="Copa Libertadores 2026 Predictor", layout="wide")
 st.title("Copa Libertadores 2026 Predictor")
-if st.button("Debug: Test Odds API"):
-    raw = fetch_odds_from_odds_api()
-    st.json(raw[:2] if isinstance(raw, list) and raw else raw)
+
 # --- DATA FORMATTING ---
 def get_logo_url(filename):
     return f"https://github.com/jjhurta2/libertadores_simulator/blob/main/{filename}?raw=true"
@@ -377,6 +375,15 @@ def get_fair_probabilities(home_team, api_odds_data):
             except (KeyError, ZeroDivisionError, TypeError):
                 break
     return 40.0, 30.0, 30.0
+    
+if st.button("Debug: Test Odds API"):
+    raw = fetch_odds_from_odds_api()
+    if raw:
+        st.write("Teams in API response:")
+        for m in raw:
+            st.write(f"- {m['home_team']} vs {m['away_team']}")
+    else:
+        st.warning("Empty response — no markets available yet, or API key issue")
 
 def get_match_defaults(home, away, group_name):
     ratings = fit_ratings(group_name)
