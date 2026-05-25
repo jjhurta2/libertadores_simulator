@@ -75,7 +75,7 @@ groups_data = {
 
 # --- API HELPERS ---
 TEAM_MAP = {
-    "Flamengo": "Clube de Regatas do Flamengo", 
+    "Flamengo": "Flamengo", 
     "Independiente Medellín": "Independiente Medellín", 
     "Estudiantes de La Plata": "Estudiantes de La Plata", 
     "Cusco FC": "Cusco FC", 
@@ -130,7 +130,7 @@ def get_fair_probabilities(home_team, api_odds_data):
             
             total = p_home + p_away + p_draw
             return (p_home/total)*100, (p_away/total)*100, (p_draw/total)*100
-    return 0, 0, 0
+    return "N/A", "N/A", "N/A"
 
 def get_match_defaults(home, away, group_data):
     h_s = next(t for t in group_data if t["Team"] == home)
