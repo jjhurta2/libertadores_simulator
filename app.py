@@ -298,6 +298,9 @@ def get_sorted_standings(group_name):
 
 def simulate_match_randomly(ph, pt, pa, xgh, xga):
     p = [ph / 100, pt / 100, pa / 100]
+    # Normalize probabilities to sum to 1.0
+    p_sum = sum(p)
+    p = [x / p_sum for x in p]
     outcome = np.random.choice(['H', 'D', 'A'], p=p)
     for _ in range(100):
         hg, ag = np.random.poisson(xgh), np.random.poisson(xga)
@@ -444,6 +447,7 @@ st.divider()
 st.header("Matchday 6 Simulator")
 mc_iterations = st.number_input("Iterations", value=1000, min_value=100, max_value=50000)
 
+run_mc = False
 predictions = {}
 matchday_6_fixtures = {
     "Group A": [("Flamengo", "Cusco"), ("Estudiantes", "DIM")],
@@ -466,7 +470,7 @@ with st.form("mc_form"):
             h_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == home), "")
             a_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == away), "")
             with match_cols[i]:
-                c = st.columns([3, 1, 1, 1, 1, 3])
+                c = st.columns([3, 1, 1, 0.5, 1, 1, 0.5, 3])
                 with c[0]:
                     st.markdown(
                         f"<div style='display:flex;align-items:center;justify-content:flex-end;margin-top:28px;'>"
@@ -474,9 +478,11 @@ with st.form("mc_form"):
                         f"<b style='font-size:0.85em'>{home}</b></div>", unsafe_allow_html=True)
                 with c[1]: ph  = st.number_input("H%",  key=f"{group_name}_{i}_ph",  value=defaults["ph"])
                 with c[2]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
-                with c[3]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
-                with c[4]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
-                with c[5]:
+                with c[3]: st.empty()  # Spacer
+                with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
+                with c[5]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
+                with c[6]: st.empty()  # Spacer
+                with c[7]:
                     st.markdown(
                         f"<div style='display:flex;align-items:center;justify-content:flex-start;margin-top:28px;'>"
                         f"<img src='{a_l}' width='24' height='24' style='margin-right:8px;'>"
