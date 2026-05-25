@@ -224,8 +224,8 @@ def fit_ratings(group_name: str) -> dict:
 
 def dixon_coles_xg(home: str, away: str, ratings: dict) -> tuple[float, float]:
     a, d, ha, mu = ratings["attack"], ratings["defense"], ratings["home_adv"], ratings["mu"]
-    xg_h = a[home] * d[away] * ha * mu
-    xg_a = a[away] * d[home] * mu
+    xg_h = a.get(home, 1.0) * d.get(away, 1.0) * ha * mu
+    xg_a = a.get(away, 1.0) * d.get(home, 1.0) * mu
     return round(max(0.3, min(xg_h, 5.0)), 2), round(max(0.3, min(xg_a, 5.0)), 2)
 
 # ---------------------------------------------------------------------------
@@ -487,11 +487,12 @@ with st.form("mc_form"):
                 })
         predictions[group_name] = group_preds
     
-    # Center the Predict button using columns
+    # Center the Predict button
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         run_mc = st.form_submit_button("Predict", type="primary", use_container_width=True)
 
+# Check if form was submitted
 if run_mc:
     mc_results = {g: {t["Team"]: {1:0,2:0,3:0,4:0} for t in groups_data[g]} for g in groups_data}
     group_past  = {g: [m for m in past_matches if m["group"] == g] for g in groups_data}
