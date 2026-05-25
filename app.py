@@ -374,7 +374,9 @@ def get_fair_probabilities(home_team, api_odds_data):
                 return (p_home/total)*100, (p_away/total)*100, (p_draw/total)*100
             except (KeyError, ZeroDivisionError, TypeError):
                 break
-    
+
+return 55.0, 20.0, 30.0
+
 if st.button("Debug: Test Odds API"):
     raw = fetch_odds_from_odds_api()
     if raw:
