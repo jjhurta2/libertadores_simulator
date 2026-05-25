@@ -14,7 +14,9 @@ def get_api_key():
 
 st.set_page_config(page_title="Copa Libertadores 2026 Predictor", layout="wide")
 st.title("Copa Libertadores 2026 Predictor")
-
+if st.button("Debug: Test Odds API"):
+    raw = fetch_odds_from_odds_api()
+    st.json(raw[:2] if isinstance(raw, list) and raw else raw)
 # --- DATA FORMATTING ---
 def get_logo_url(filename):
     return f"https://github.com/jjhurta2/libertadores_simulator/blob/main/{filename}?raw=true"
