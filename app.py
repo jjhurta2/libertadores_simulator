@@ -84,46 +84,37 @@ for i in range(0, len(group_items), 2):
 
 st.divider()
 
-# --- HARDCODED POLYMARKET ODDS ---
-# TODO: Update these exact numbers with the percentages from the Polymarket URLs you provided.
-# If a team has a 65% chance to win, change 50.0 to 65.0. 
+# --- HARDCODED ODDS (Update these percentages from Polymarket) ---
 HARDCODED_ODDS = {
-    "Flamengo vs Cusco FC": {"ph": 50.0, "pa": 30.0},
-    "Estudiantes de La Plata vs Independiente Medellín": {"ph": 50.0, "pa": 30.0},
-    "Nacional de Football vs Coquimbo Unido": {"ph": 50.0, "pa": 30.0},
-    "Universitario vs Deportes Tolima": {"ph": 50.0, "pa": 30.0},
-    "Bolívar vs Ind. Rivadavia": {"ph": 50.0, "pa": 30.0},
-    "Fluminense FC vs Deportivo La Guaira": {"ph": 50.0, "pa": 30.0},
-    "Boca Juniors vs Universidad Católica": {"ph": 50.0, "pa": 30.0},
-    "Cruzeiro vs Barcelona S.C.": {"ph": 50.0, "pa": 30.0},
-    "Peñarol vs Independiente Santa Fe": {"ph": 50.0, "pa": 30.0},
-    "Corinthians vs Platense": {"ph": 50.0, "pa": 30.0},
-    "Cerro Porteño vs Sporting Cristal": {"ph": 50.0, "pa": 30.0},
-    "Palmeiras vs Junior FC": {"ph": 50.0, "pa": 30.0},
-    "Lanús vs Mirassol": {"ph": 50.0, "pa": 30.0},
-    "LDU Quito vs Always Ready": {"ph": 50.0, "pa": 30.0},
-    "Independiente del Valle vs Rosario Central": {"ph": 50.0, "pa": 30.0},
-    "Libertad vs Universidad Central": {"ph": 50.0, "pa": 30.0}
+    "Flamengo vs Cusco FC": {"ph": 85.0, "pa": 5.0}, # Placeholder
+    "Estudiantes de La Plata vs Independiente Medellín": {"ph": 45.0, "pa": 30.0},
+    "Nacional de Football vs Coquimbo Unido": {"ph": 40.0, "pa": 40.0},
+    "Universitario vs Deportes Tolima": {"ph": 40.0, "pa": 40.0},
+    "Bolívar vs Ind. Rivadavia": {"ph": 50.0, "pa": 25.0},
+    "Fluminense FC vs Deportivo La Guaira": {"ph": 70.0, "pa": 10.0},
+    "Boca Juniors vs Universidad Católica": {"ph": 45.0, "pa": 30.0},
+    "Cruzeiro vs Barcelona S.C.": {"ph": 60.0, "pa": 20.0},
+    "Peñarol vs Independiente Santa Fe": {"ph": 40.0, "pa": 35.0},
+    "Corinthians vs Platense": {"ph": 65.0, "pa": 15.0},
+    "Cerro Porteño vs Sporting Cristal": {"ph": 50.0, "pa": 25.0},
+    "Palmeiras vs Junior FC": {"ph": 70.0, "pa": 10.0},
+    "Lanús vs Mirassol": {"ph": 56.0, "pa": 18.0}, # Your provided example
+    "LDU Quito vs Always Ready": {"ph": 75.0, "pa": 10.0},
+    "Independiente del Valle vs Rosario Central": {"ph": 45.0, "pa": 35.0},
+    "Libertad vs Universidad Central": {"ph": 55.0, "pa": 20.0}
 }
 
 # --- SIMULATOR BACKEND ---
 def get_match_defaults(home_team, away_team, group_data):
-    """Calculates proxy xG and pulls probabilities from the HARDCODED_ODDS dictionary."""
     h_s = next(t for t in group_data if t["Team"] == home_team)
     a_s = next(t for t in group_data if t["Team"] == away_team)
-    
-    # Calculate proxy Expected Goals
     h_xg = ((h_s["Goals Scored"] / max(1, h_s["Played"])) + (a_s["Goals Received"] / max(1, a_s["Played"]))) / 2 + 0.2
     a_xg = ((a_s["Goals Scored"] / max(1, a_s["Played"])) + (h_s["Goals Received"] / max(1, h_s["Played"]))) / 2
     
     match_key = f"{home_team} vs {away_team}"
-    
     if match_key in HARDCODED_ODDS:
-        ph = HARDCODED_ODDS[match_key]["ph"]
-        pa = HARDCODED_ODDS[match_key]["pa"]
-        return {"ph": ph, "pa": pa, "xgh": float(h_xg), "xga": float(a_xg), "api_found": True}
-    
-    return {"ph": 50.0, "pa": 30.0, "xgh": float(h_xg), "xga": float(a_xg), "api_found": False}
+        return {"ph": HARDCODED_ODDS[match_key]["ph"], "pa": HARDCODED_ODDS[match_key]["pa"], "xgh": float(h_xg), "xga": float(a_xg)}
+    return {"ph": 50.0, "pa": 30.0, "xgh": float(h_xg), "xga": float(a_xg)}
 
 def calculate_standings(group_teams, all_group_matches):
     stats = {t["Team"]: {"Played": 0, "Won": 0, "Lost": 0, "Drawn": 0, "Goals Scored": 0, "Goals Received": 0, "Points": 0, "Logo": t["Logo"]} for t in group_teams}
@@ -172,8 +163,6 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
 
 # --- UI ---
 st.header("🎲 Matchday 6 Monte Carlo Simulator")
-st.write("🟢 Loaded Probabilities from Data Dictionary") 
-
 mc_iterations = st.number_input("Iterations", value=1000)
 predictions = {}
 matchday_6_fixtures = {
@@ -195,35 +184,17 @@ with st.form("mc_form"):
         match_cols = st.columns(2)
         for i, (home, away) in enumerate(fixtures):
             defaults = get_match_defaults(home, away, groups_data[group_name])
-            
             home_logo = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == home)
             away_logo = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == away)
-            
             with match_cols[i]:
                 c = st.columns([3, 1, 1, 1, 1, 3])
-                
-                with c[0]: 
-                    st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 28px;'>
-                            <img src='{home_logo}' width='24' height='24' style='margin-right: 8px;'>
-                            <span style='font-size: 0.85em; font-weight: bold; text-align: right;'>{'⚡ ' if defaults['api_found'] else ''}{home}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                with c[1]: ph = st.number_input("H%", key=f"{group_name}_{i}_ph", value=round(float(defaults["ph"]), 1), format="%.1f")
-                with c[2]: pa = st.number_input("A%", key=f"{group_name}_{i}_pa", value=round(float(defaults["pa"]), 1), format="%.1f")
-                with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=round(float(defaults["xgh"]), 2), format="%.2f")
-                with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=round(float(defaults["xga"]), 2), format="%.2f")
-                
-                with c[5]: 
-                    st.markdown(f"""
-                        <div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 28px;'>
-                            <img src='{away_logo}' width='24' height='24' style='margin-right: 8px;'>
-                            <span style='font-size: 0.85em; font-weight: bold; text-align: left;'>{away}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": max(0.0, 100.0 - ph - pa), "pa": pa, "xgh": xgh, "xga": xga})
+                with c[0]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 28px;'><img src='{home_logo}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{home}</b></div>", unsafe_allow_html=True)
+                with c[1]: ph = st.number_input("H%", key=f"{group_name}_{i}_ph", value=defaults["ph"])
+                with c[2]: pa = st.number_input("A%", key=f"{group_name}_{i}_pa", value=defaults["pa"])
+                with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
+                with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
+                with c[5]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 28px;'><img src='{away_logo}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{away}</b></div>", unsafe_allow_html=True)
+                group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": max(0, 100-ph-pa), "pa": pa, "xgh": xgh, "xga": xga})
         predictions[group_name] = group_preds
     run_mc = st.form_submit_button("Run Analysis", type="primary")
 
@@ -234,7 +205,6 @@ if run_mc:
             sim_m6 = [{"home": m["home"], "away": m["away"], "home_score": hg, "away_score": ag} for m in predictions[g_name] for hg, ag in [simulate_match_randomly(m["ph"], m["pt"], m["pa"], m["xgh"], m["xga"])]]
             sorted_s = resolve_ties(calculate_standings(groups_data[g_name], [m for m in past_matches if m["group"] == g_name] + sim_m6), sim_m6)
             for pos, team in enumerate(sorted_s): mc_results[g_name][team["Team"]][pos + 1] += 1
-    
     for g_name in groups_data.keys():
         st.subheader(f"{g_name} Matrix")
         df_res = pd.DataFrame([{"Team": t, **{f"{p}º": f"{(c/mc_iterations)*100:.1f}%" for p, c in pos.items()}} for t, pos in mc_results[g_name].items()])
