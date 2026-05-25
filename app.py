@@ -425,19 +425,20 @@ for i in range(0, len(group_items), 2):
                 # Render to an HTML table string
                 html_table = df_display.to_html(escape=False, index=False, justify='left')
                 
-                # Apply custom CSS to ensure it looks like a clean Streamlit table
+                # IMPORTANT: Do not indent the HTML string below, otherwise Streamlit 
+                # will treat it as a Markdown code block!
                 styled_html = f"""
-                <style>
-                .custom-table table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; margin-bottom: 20px; }}
-                .custom-table th {{ border-bottom: 1px solid rgba(128, 128, 128, 0.2); padding: 10px 8px; text-align: left; font-weight: 600; color: inherit; }}
-                .custom-table td {{ border-bottom: 1px solid rgba(128, 128, 128, 0.2); padding: 8px; color: inherit; }}
-                </style>
-                <div class="custom-table">
-                {html_table}
-                </div>
-                """
+<style>
+.custom-table table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; margin-bottom: 20px; }}
+.custom-table th {{ border-bottom: 1px solid rgba(128, 128, 128, 0.2); padding: 10px 8px; text-align: left; font-weight: 600; color: inherit; }}
+.custom-table td {{ border-bottom: 1px solid rgba(128, 128, 128, 0.2); padding: 8px; color: inherit; }}
+</style>
+<div class="custom-table">
+{html_table}
+</div>
+"""
                 
-                st.write(styled_html, unsafe_allow_html=True)
+                st.markdown(styled_html, unsafe_allow_html=True)
 
 st.divider()
 st.header("Matchday 6 Simulator")
