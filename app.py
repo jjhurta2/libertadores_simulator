@@ -88,69 +88,53 @@ st.divider()
 
 # --- SIMULATOR BACKEND ---
 TEAM_API_MAPPING = {
-    "Flamengo": ["flamengo"], "Independiente Medellín": ["medellin", "dim"], 
-    "Estudiantes de La Plata": ["estudiantes"], "Cusco FC": ["cusco"],
-    "Coquimbo Unido": ["coquimbo"], "Deportes Tolima": ["tolima"],
-    "Universitario": ["universitario"], "Nacional de Football": ["nacional"],
-    "Ind. Rivadavia": ["rivadavia"], "Bolívar": ["bolivar"],
-    "Fluminense FC": ["fluminense"], "Deportivo La Guaira": ["guaira"],
-    "Universidad Católica": ["catolica"], "Cruzeiro": ["cruzeiro"],
-    "Boca Juniors": ["boca"], "Barcelona S.C.": ["barcelona"],
-    "Corinthians": ["corinthians"], "Platense": ["platense"],
-    "Independiente Santa Fe": ["santa fe"], "Peñarol": ["penarol", "peñarol"],
-    "Cerro Porteño": ["cerro", "porteno"], "Palmeiras": ["palmeiras"],
-    "Sporting Cristal": ["cristal"], "Junior FC": ["junior"],
-    "Mirassol": ["mirassol"], "LDU Quito": ["ldu", "quito"],
-    "Lanús": ["lanus"], "Always Ready": ["always"],
-    "Rosario Central": ["rosario"], "Independiente del Valle": ["valle", "idv"],
-    "Universidad Central": ["universidad central"], "Libertad": ["libertad"]
+    "Flamengo": ["flamengo", "fla", "CR Flamengo"], "Independiente Medellín": ["medellin", "dim"], 
+    "Estudiantes de La Plata": ["estudiantes", "est"], "Cusco FC": ["cusco", "garcilaso", "gar", "Cusco FC"],
+    "Coquimbo Unido": ["coquimbo", "coq", "CD Coquimbo Unido"], "Deportes Tolima": ["tolima", "tol", "CD Tolima"],
+    "Universitario": ["universitario", "uni", "Club Universitario de Deportes"], "Nacional de Football": ["nacional", "nac", "Club Nacional de Football"],
+    "Ind. Rivadavia": ["rivadavia", "independiente rivadavia", "cir", "CS Independiente Rivadavia"], "Bolívar": ["bolivar", "bol", "Club Bolívar"],
+    "Fluminense FC": ["fluminense", "flu", "Fluminense FC"], "Deportivo La Guaira": ["guaira", "gua1", "Deportivo La Guaira FC"],
+    "Universidad Católica": ["catolica", "cat1", "CD Universidad Católica"], "Cruzeiro": ["cruzeiro", "cru", "Cruzeiro EC"],
+    "Boca Juniors": ["boca", "boc", "CA Boca Juniors"], "Barcelona S.C.": ["barcelona", "bar", "Barcelona SC"],
+    "Corinthians": ["corinthians", "cor", "SC Corinthians Paulista"], "Platense": ["platense", "cp", "cap", "CA Platense"],
+    "Independiente Santa Fe": ["santa fe", "san1"], "Peñarol": ["penarol", "peñarol", "pen", "CA Peñarol"],
+    "Cerro Porteño": ["cerro", "porteno", "cep", "Club Cerro Porteño"], "Palmeiras": ["palmeiras", "pal", "SE Palmeiras"],
+    "Sporting Cristal": ["cristal", "cri", "CS Cristal"], "Junior FC": ["junior", "jun", "CDP Junior FC"],
+    "Mirassol": ["mirassol", "mir", "Mirassol FC"], "LDU Quito": ["ldu", "LDU de Quito", "lqu"],
+    "Lanús": ["lanus", "lan", "CA Lanús"], "Always Ready": ["always", "alw", "Club Always Ready"],
+    "Rosario Central": ["rosario", "ros", "CA Rosario Central"], "Independiente del Valle": ["valle", "idv", "ind1", "Independiente del Valle"],
+    "Universidad Central": ["universidad central", "ucv", "Universidad Central de Venezuela FC"], "Libertad": ["libertad", "lib", "Club Libertad"]
 }
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_polymarket_events():
     url = "https://gamma-api.polymarket.com/events"
     sports_events = []
-    # Search multiple offsets to find buried sports markets
-    for offset in [0, 300, 600, 900]:
+    
+    # Target the explicit matches you are looking for
+    slugs = [
+        "lib-lan-mir-2026-05-26", "lib-lqu-alw-2026-05-26", "lib-fla-gar-2026-05-26",
+        "lib-est-dim-2026-05-26", "lib-nac-coq-2026-05-26", "lib-uni-tol-2026-05-26",
+        "lib-lib-ucv-2026-05-27", "lib-ind1-ros-2026-05-27", "lib-bol-cir-2026-05-27",
+        "lib-cor-cp-2026-05-27", "lib-flu-gua1-2026-05-27", "lib-pen-san1-2026-05-27",
+        "lib-pal-jun-2026-05-28", "lib-cep-cri-2026-05-28", "lib-boc-cat1-2026-05-28",
+        "lib-cru-bar-2026-05-28"
+    ]
+    
+    for slug in slugs:
         try:
-            resp = requests.get(url, params={"closed": "false", "active": "true", "limit": 300, "offset": offset}, timeout=10)
+            # Query the Gamma API directly by slug
+            resp = requests.get(url, params={"slug": slug}, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                events = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-                for e in events:
-                    title = e.get("title", "").lower()
-                    if " vs " in title or " vs. " in title: sports_events.append(e)
-        except: break
+                if data:
+                    # The API might return a list or a single dictionary depending on exact params
+                    events = data if isinstance(data, list) else [data]
+                    sports_events.extend(events)
+        except Exception:
+            continue
+            
     return sports_events
-
-def is_team_match(my_team, target_string):
-    target_norm = "".join(c for c in unicodedata.normalize('NFD', str(target_string).lower()) if unicodedata.category(c) != 'Mn')
-    keywords = TEAM_API_MAPPING.get(my_team, [str(my_team).lower()])
-    for kw in keywords:
-        if str(kw).lower() in target_norm: return True
-    return False
-
-def get_match_defaults(home_team, away_team, group_data, poly_events):
-    h_s = next(t for t in group_data if t["Team"] == home_team)
-    a_s = next(t for t in group_data if t["Team"] == away_team)
-    h_xg = ((h_s["Goals Scored"]/max(1, h_s["Played"])) + (a_s["Goals Received"]/max(1, a_s["Played"])))/2 + 0.2
-    a_xg = ((a_s["Goals Scored"]/max(1, a_s["Played"])) + (h_s["Goals Received"]/max(1, h_s["Played"])))/2
-    defaults = {"ph": 50.0, "pa": 30.0, "xgh": h_xg, "xga": a_xg, "api_found": False}
-    if poly_events:
-        for event in poly_events:
-            title = event.get("title", "")
-            if is_team_match(home_team, title) and is_team_match(away_team, title):
-                for market in event.get("markets", []):
-                    outcomes = market.get("outcomes", [])
-                    prices = market.get("outcomePrices", [])
-                    if len(outcomes) >= 2:
-                        ph, pa = 0, 0
-                        for i, o in enumerate(outcomes):
-                            p = float(prices[i]) * 100
-                            if is_team_match(home_team, o): ph = p
-                            elif is_team_match(away_team, o): pa = p
-                        if ph > 0 and pa > 0: defaults.update({"ph": ph, "pa": pa, "api_found": True}); return defaults
-    return defaults
 
 def calculate_standings(group_teams, all_group_matches):
     stats = {t["Team"]: {"Played": 0, "Won": 0, "Lost": 0, "Drawn": 0, "Goals Scored": 0, "Goals Received": 0, "Points": 0, "Logo": t["Logo"]} for t in group_teams}
