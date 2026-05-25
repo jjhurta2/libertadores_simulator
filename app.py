@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import requests
+import json
 
 # Configure the page layout
 st.set_page_config(page_title="Copa Libertadores 2026 Simulator", layout="wide")
@@ -19,7 +21,7 @@ def create_group_df(data):
     })
     return df[["Pos", "Logo", "Team", "GP", "W", "D", "L", "GF", "GA", "+/-", "Points"]]
 
-# --- GROUPS DATA ---
+# --- DATA ---
 groups_data = {
     "Group A": [{"Position": 1, "Logo": get_logo_url("flamengo.png"), "Team": "Flamengo", "Played": 5, "Won": 4, "Lost": 0, "Drawn": 1, "Goals Scored": 11, "Goals Received": 2, "Goal Difference": 9, "Points": 13}, {"Position": 2, "Logo": get_logo_url("dim.png"), "Team": "Independiente Medellín", "Played": 5, "Won": 2, "Lost": 2, "Drawn": 1, "Goals Scored": 6, "Goals Received": 10, "Goal Difference": -4, "Points": 7}, {"Position": 3, "Logo": get_logo_url("estudiantes.png"), "Team": "Estudiantes de La Plata", "Played": 5, "Won": 1, "Lost": 1, "Drawn": 3, "Goals Scored": 5, "Goals Received": 5, "Goal Difference": 0, "Points": 6}, {"Position": 4, "Logo": get_logo_url("cusco.png"), "Team": "Cusco FC", "Played": 5, "Won": 0, "Lost": 4, "Drawn": 1, "Goals Scored": 4, "Goals Received": 9, "Goal Difference": -5, "Points": 1}],
     "Group B": [{"Position": 1, "Logo": get_logo_url("coquimbo.png"), "Team": "Coquimbo Unido", "Played": 5, "Won": 3, "Lost": 1, "Drawn": 1, "Goals Scored": 8, "Goals Received": 5, "Goal Difference": 3, "Points": 10}, {"Position": 2, "Logo": get_logo_url("tolima.png"), "Team": "Deportes Tolima", "Played": 5, "Won": 2, "Lost": 2, "Drawn": 1, "Goals Scored": 7, "Goals Received": 6, "Goal Difference": 1, "Points": 7}, {"Position": 3, "Logo": get_logo_url("universitario.png"), "Team": "Universitario", "Played": 5, "Won": 1, "Lost": 2, "Drawn": 2, "Goals Scored": 5, "Goals Received": 6, "Goal Difference": -1, "Points": 5}, {"Position": 4, "Logo": get_logo_url("nacional.png"), "Team": "Nacional de Football", "Played": 5, "Won": 1, "Lost": 2, "Drawn": 2, "Goals Scored": 6, "Goals Received": 9, "Goal Difference": -3, "Points": 5}],
@@ -31,85 +33,49 @@ groups_data = {
     "Group H": [{"Position": 1, "Logo": get_logo_url("rosariocentral.png"), "Team": "Rosario Central", "Played": 5, "Won": 4, "Lost": 0, "Drawn": 1, "Goals Scored": 9, "Goals Received": 0, "Goal Difference": 9, "Points": 13}, {"Position": 2, "Logo": get_logo_url("idv.png"), "Team": "Independiente del Valle", "Played": 5, "Won": 3, "Lost": 1, "Drawn": 1, "Goals Scored": 10, "Goals Received": 6, "Goal Difference": 4, "Points": 10}, {"Position": 3, "Logo": get_logo_url("universidadcentral.png"), "Team": "Universidad Central", "Played": 5, "Won": 2, "Lost": 3, "Drawn": 0, "Goals Scored": 6, "Goals Received": 11, "Goal Difference": -5, "Points": 6}, {"Position": 4, "Logo": get_logo_url("libertad.png"), "Team": "Libertad", "Played": 5, "Won": 0, "Lost": 5, "Drawn": 0, "Goals Scored": 4, "Goals Received": 12, "Goal Difference": -8, "Points": 0}]
 }
 
-# --- RENDER TABLES ---
-group_items = list(groups_data.items())
-for i in range(0, len(group_items), 2):
-    c1, c2 = st.columns(2)
-    for idx, col in enumerate([c1, c2]):
-        if i + idx < len(group_items):
-            g_name, g_data = group_items[i + idx]
-            with col:
-                st.subheader(g_name)
-                st.data_editor(create_group_df(g_data), column_config={"Logo": st.column_config.ImageColumn("Logo", help="Team Logo"), "Pos": st.column_config.NumberColumn("Pos", format="%d")}, hide_index=True, use_container_width=True, disabled=True)
-
-st.divider()
-
-# --- HARDCODED ODDS (Update these with the Polymarket values) ---
-HARDCODED_ODDS = {
-    "Flamengo vs Cusco FC": {"ph": 50.0, "pa": 50.0},
-    "Estudiantes de La Plata vs Independiente Medellín": {"ph": 50.0, "pa": 50.0},
-    "Nacional de Football vs Coquimbo Unido": {"ph": 50.0, "pa": 50.0},
-    "Universitario vs Deportes Tolima": {"ph": 50.0, "pa": 50.0},
-    "Bolívar vs Ind. Rivadavia": {"ph": 50.0, "pa": 50.0},
-    "Fluminense FC vs Deportivo La Guaira": {"ph": 50.0, "pa": 50.0},
-    "Boca Juniors vs Universidad Católica": {"ph": 50.0, "pa": 50.0},
-    "Cruzeiro vs Barcelona S.C.": {"ph": 50.0, "pa": 50.0},
-    "Peñarol vs Independiente Santa Fe": {"ph": 50.0, "pa": 50.0},
-    "Corinthians vs Platense": {"ph": 50.0, "pa": 50.0},
-    "Cerro Porteño vs Sporting Cristal": {"ph": 50.0, "pa": 50.0},
-    "Palmeiras vs Junior FC": {"ph": 50.0, "pa": 50.0},
-    "Lanús vs Mirassol": {"ph": 56.0, "pa": 18.0},
-    "LDU Quito vs Always Ready": {"ph": 50.0, "pa": 50.0},
-    "Independiente del Valle vs Rosario Central": {"ph": 50.0, "pa": 50.0},
-    "Libertad vs Universidad Central": {"ph": 50.0, "pa": 50.0}
+# --- AUTOMATIC ODDS FETCHING ---
+SLUG_MAP = {
+    "Flamengo vs Cusco FC": "lib-fla-gar-2026-05-26",
+    "Estudiantes de La Plata vs Independiente Medellín": "lib-est-dim-2026-05-26",
+    "Nacional de Football vs Coquimbo Unido": "lib-nac-coq-2026-05-26",
+    "Universitario vs Deportes Tolima": "lib-uni-tol-2026-05-26",
+    "Bolívar vs Ind. Rivadavia": "lib-bol-cir-2026-05-27",
+    "Fluminense FC vs Deportivo La Guaira": "lib-flu-gua1-2026-05-27",
+    "Boca Juniors vs Universidad Católica": "lib-boc-cat1-2026-05-28",
+    "Cruzeiro vs Barcelona S.C.": "lib-cru-bar-2026-05-28",
+    "Peñarol vs Independiente Santa Fe": "lib-pen-san1-2026-05-27",
+    "Corinthians vs Platense": "lib-cor-cp-2026-05-27",
+    "Cerro Porteño vs Sporting Cristal": "lib-cep-cri-2026-05-28",
+    "Palmeiras vs Junior FC": "lib-pal-jun-2026-05-28",
+    "Lanús vs Mirassol": "lib-lan-mir-2026-05-26",
+    "LDU Quito vs Always Ready": "lib-lqu-alw-2026-05-26",
+    "Independiente del Valle vs Rosario Central": "lib-ind1-ros-2026-05-27",
+    "Libertad vs Universidad Central": "lib-lib-ucv-2026-05-27"
 }
+
+@st.cache_data(ttl=3600)
+def fetch_odds(slug):
+    try:
+        url = f"https://gamma-api.polymarket.com/events/slug/{slug}"
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            prices = json.loads(data.get("outcomePrices", "[]"))
+            if len(prices) >= 2: return round(float(prices[0])*100, 1), round(float(prices[1])*100, 1)
+    except: pass
+    return 50.0, 50.0
 
 def get_match_defaults(home, away, group_data):
     h_s = next(t for t in group_data if t["Team"] == home)
     a_s = next(t for t in group_data if t["Team"] == away)
     h_xg = ((h_s["Goals Scored"] / max(1, h_s["Played"])) + (a_s["Goals Received"] / max(1, a_s["Played"]))) / 2 + 0.2
     a_xg = ((a_s["Goals Scored"] / max(1, a_s["Played"])) + (h_s["Goals Received"] / max(1, h_s["Played"]))) / 2
-    match_key = f"{home} vs {away}"
-    odds = HARDCODED_ODDS.get(match_key, {"ph": 50.0, "pa": 50.0})
-    return {"ph": odds["ph"], "pa": odds["pa"], "xgh": float(h_xg), "xga": float(a_xg)}
+    
+    slug = SLUG_MAP.get(f"{home} vs {away}")
+    ph, pa = fetch_odds(slug) if slug else (50.0, 50.0)
+    return {"ph": ph, "pa": pa, "xgh": float(h_xg), "xga": float(a_xg)}
 
-def calculate_standings(group_teams, all_group_matches):
-    stats = {t["Team"]: {"Played": 0, "Won": 0, "Lost": 0, "Drawn": 0, "Goals Scored": 0, "Goals Received": 0, "Points": 0, "Logo": t["Logo"]} for t in group_teams}
-    for m in all_group_matches:
-        home, away, hg, ag = m["home"], m["away"], m["home_score"], m["away_score"]
-        if home in stats and away in stats:
-            stats[home]["Played"] += 1; stats[away]["Played"] += 1
-            stats[home]["Goals Scored"] += hg; stats[home]["Goals Received"] += ag
-            stats[away]["Goals Scored"] += ag; stats[away]["Goals Received"] += hg
-            if hg > ag: stats[home]["Won"] += 1; stats[home]["Points"] += 3; stats[away]["Lost"] += 1
-            elif ag > hg: stats[away]["Won"] += 1; stats[away]["Points"] += 3; stats[home]["Lost"] += 1
-            else: stats[home]["Drawn"] += 1; stats[away]["Drawn"] += 1; stats[home]["Points"] += 1; stats[away]["Points"] += 1
-    for team in stats:
-        stats[team]["Goal Difference"] = stats[team]["Goals Scored"] - stats[team]["Goals Received"]
-        stats[team]["Team"] = team
-    return list(stats.values())
-
-def resolve_ties(teams_list, all_group_matches):
-    points_groups = {}
-    for team in teams_list:
-        p = team["Points"]
-        if p not in points_groups: points_groups[p] = []
-        points_groups[p].append(team)
-    final_sorted_group = []
-    for p in sorted(points_groups.keys(), reverse=True):
-        tied = points_groups[p]
-        if len(tied) == 1: final_sorted_group.append(tied[0]); continue
-        names = [t["Team"] for t in tied]
-        h2h = [m for m in all_group_matches if m["home"] in names and m["away"] in names]
-        stats = calculate_standings(tied, h2h)
-        for s in stats:
-            orig = next(t for t in tied if t["Team"] == s["Team"])
-            s["Total GD"] = orig["Goal Difference"]; s["Total GS"] = orig["Goals Scored"]; s["Original Data"] = orig
-        stats.sort(key=lambda x: (x["Points"], x["Goal Difference"], x["Goals Scored"], x["Original Data"]["Points"], x["Total GD"], x["Total GS"]), reverse=True)
-        for s in stats: final_sorted_group.append(s["Original Data"])
-    for i, t in enumerate(final_sorted_group): t["Position"] = i + 1
-    return final_sorted_group
-
+# --- SIMULATION ENGINE ---
 def simulate_match_randomly(ph, pt, pa, xgh, xga):
     p = [ph/100, pt/100, pa/100]
     outcome = np.random.choice(['H', 'D', 'A'], p=p)
@@ -141,16 +107,16 @@ with st.form("mc_form"):
         match_cols = st.columns(2)
         for i, (home, away) in enumerate(fixtures):
             defaults = get_match_defaults(home, away, groups_data[group_name])
-            home_logo = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == home)
-            away_logo = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == away)
+            h_l = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == home)
+            a_l = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == away)
             with match_cols[i]:
                 c = st.columns([3, 1, 1, 1, 1, 3])
-                with c[0]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 28px;'><img src='{home_logo}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{home}</b></div>", unsafe_allow_html=True)
+                with c[0]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 28px;'><img src='{h_l}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{home}</b></div>", unsafe_allow_html=True)
                 with c[1]: ph = st.number_input("H%", key=f"{group_name}_{i}_ph", value=defaults["ph"])
                 with c[2]: pa = st.number_input("A%", key=f"{group_name}_{i}_pa", value=defaults["pa"])
                 with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
                 with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
-                with c[5]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 28px;'><img src='{away_logo}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{away}</b></div>", unsafe_allow_html=True)
+                with c[5]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 28px;'><img src='{a_l}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{away}</b></div>", unsafe_allow_html=True)
                 group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": max(0, 100-ph-pa), "pa": pa, "xgh": xgh, "xga": xga})
         predictions[group_name] = group_preds
     run_mc = st.form_submit_button("Run Analysis", type="primary")
