@@ -336,6 +336,42 @@ def fetch_odds_from_odds_api():
     resp = requests.get(url, params=params)
     return resp.json() if resp.status_code == 200 else []
 
+def debug_odds_api():
+    """Detailed debugging for API requests"""
+    api_key = get_api_key()
+    url = "https://api.the-odds-api.com/v4/sports/soccer_conmebol_copa_libertadores/odds/"
+    params = {"apiKey": api_key, "regions": "us", "markets": "h2h"}
+    
+    st.write("**API Request Details:**")
+    st.write(f"- URL: `{url}`")
+    st.write(f"- Parameters: `regions=us, markets=h2h` (API key hidden for security)")
+    
+    resp = requests.get(url, params=params)
+    
+    st.write(f"\n**Response Status:**")
+    st.write(f"- Status Code: `{resp.status_code}`")
+    st.write(f"- Headers: `{dict(resp.headers)}`")
+    
+    if resp.status_code == 200:
+        try:
+            data = resp.json()
+            st.write(f"\n**Response Data:**")
+            st.write(f"- Number of matches returned: `{len(data)}`")
+            if data:
+                st.write(f"\n**First match structure:**")
+                st.json(data[0])
+                st.write(f"\n**All teams in response:**")
+                for m in data:
+                    st.write(f"- {m.get('home_team', 'N/A')} vs {m.get('away_team', 'N/A')}")
+            else:
+                st.warning("API returned 200 OK but with empty data array")
+        except Exception as e:
+            st.error(f"Error parsing JSON: {e}")
+            st.write(f"Raw response text: {resp.text}")
+    else:
+        st.error(f"API request failed with status {resp.status_code}")
+        st.write(f"Response text: {resp.text}")
+
 def get_fair_probabilities(home_team, api_odds_data):
     search_name = TEAM_MAP.get(home_team, home_team)
     for match in api_odds_data:
@@ -356,13 +392,7 @@ def get_fair_probabilities(home_team, api_odds_data):
     return 50.0, 20.0, 30.0
 
 if st.button("Debug: Test Odds API"):
-    raw = fetch_odds_from_odds_api()
-    if raw:
-        st.write("Teams in API response:")
-        for m in raw:
-            st.write(f"- {m['home_team']} vs {m['away_team']}")
-    else:
-        st.warning("Empty response — no markets available yet, or API key issue")
+    debug_odds_api()
 
 def xg_to_probabilities(xgh: float, xga: float, max_goals: int = 8) -> tuple:
     from scipy.stats import poisson
