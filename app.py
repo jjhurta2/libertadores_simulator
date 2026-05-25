@@ -127,7 +127,6 @@ def fetch_polymarket_events():
                 data = resp.json()
                 if data:
                     events = data if isinstance(data, list) else [data]
-                    # Ensure we only append valid dictionaries to prevent downstream crashes
                     for e in events:
                         if isinstance(e, dict):
                             sports_events.append(e)
@@ -181,12 +180,7 @@ def is_team_match(my_team, target_string):
     return False
 
 def get_match_defaults(home_team, away_team, group_data, poly_events):
-    """
-    CRITICAL FIX: Wrapped entirely in a try/except block. 
-    If the API payload is corrupted, it silently falls back to pure math rather than crashing the form.
-    """
     try:
-        # Step 1: Guarantee mathematical fallback exists
         h_s = next(t for t in group_data if t["Team"] == home_team)
         a_s = next(t for t in group_data if t["Team"] == away_team)
         h_xg = ((h_s["Goals Scored"] / max(1, h_s["Played"])) + (a_s["Goals Received"] / max(1, a_s["Played"]))) / 2 + 0.2
@@ -194,7 +188,6 @@ def get_match_defaults(home_team, away_team, group_data, poly_events):
         
         defaults = {"ph": 50.0, "pa": 30.0, "xgh": float(h_xg), "xga": float(a_xg), "api_found": False}
         
-        # Step 2: Attempt to overlay API data carefully
         if poly_events:
             for event in poly_events:
                 title = event.get("title", "")
@@ -203,7 +196,6 @@ def get_match_defaults(home_team, away_team, group_data, poly_events):
                         outcomes = market.get("outcomes", [])
                         prices = market.get("outcomePrices", [])
                         
-                        # Strict type and length validation before indexing arrays
                         if isinstance(outcomes, list) and isinstance(prices, list) and len(outcomes) >= 2 and len(prices) == len(outcomes):
                             ph, pa = 0.0, 0.0
                             for i, o in enumerate(outcomes):
@@ -212,15 +204,14 @@ def get_match_defaults(home_team, away_team, group_data, poly_events):
                                     if is_team_match(home_team, o): ph = p
                                     elif is_team_match(away_team, o): pa = p
                                 except Exception:
-                                    continue # Skip corrupted numbers quietly
+                                    continue
                             
                             if ph > 0.0 and pa > 0.0:
                                 defaults.update({"ph": ph, "pa": pa, "api_found": True})
                                 return defaults
                                 
         return defaults
-    except Exception as e:
-        # If absolutely anything crashes, return a hardcoded 50/30 baseline to save the UI loop
+    except Exception:
         return {"ph": 50.0, "pa": 30.0, "xgh": 2.0, "xga": 1.0, "api_found": False}
 
 def simulate_match_randomly(ph, pt, pa, xgh, xga):
@@ -258,30 +249,44 @@ with st.form("mc_form"):
         group_preds = []
         match_cols = st.columns(2)
         for i, (home, away) in enumerate(fixtures):
-            # This function is now protected by a try/except, meaning the form will ALWAYS finish rendering.
             defaults = get_match_defaults(home, away, groups_data[group_name], poly_events)
             
+            # Fetch the logos correctly from your source dictionary
+            home_logo = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == home)
+            away_logo = next(t["Logo"] for t in groups_data[group_name] if t["Team"] == away)
+            
             with match_cols[i]:
-                c = st.columns([4, 2, 2, 2, 2, 4])
-                with c[0]: st.markdown(f"**{'⚡' if defaults['api_found'] else ''} {home}**")
-                with c[1]: ph = st.number_input("H%", key=f"{group_name}_{i}_ph", value=float(defaults["ph"]))
-                with c[2]: pa = st.number_input("A%", key=f"{group_name}_{i}_pa", value=float(defaults["pa"]))
-                with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=float(defaults["xgh"]))
-                with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=float(defaults["xga"]))
-                with c[5]: st.markdown(f"**{away}**")
+                c = st.columns([3, 1, 1, 1, 1, 3])
                 
-                # Math limits enforced
-                pt = max(0.0, 100.0 - ph - pa)
-                group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": pt, "pa": pa, "xgh": xgh, "xga": xga})
-        
+                # Replaced markdown ** with strict HTML bolding, and appended logo to the left of the name
+                with c[0]: 
+                    st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: flex-end; margin-top: 28px;'>
+                            <img src='{home_logo}' width='24' height='24' style='margin-right: 8px;'>
+                            <span style='font-size: 0.85em; font-weight: bold; text-align: right;'>{'⚡ ' if defaults['api_found'] else ''}{home}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                with c[1]: ph = st.number_input("H%", key=f"{group_name}_{i}_ph", value=round(float(defaults["ph"]), 1), format="%.1f")
+                with c[2]: pa = st.number_input("A%", key=f"{group_name}_{i}_pa", value=round(float(defaults["pa"]), 1), format="%.1f")
+                with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=round(float(defaults["xgh"]), 2), format="%.2f")
+                with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=round(float(defaults["xga"]), 2), format="%.2f")
+                
+                with c[5]: 
+                    st.markdown(f"""
+                        <div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 28px;'>
+                            <img src='{away_logo}' width='24' height='24' style='margin-right: 8px;'>
+                            <span style='font-size: 0.85em; font-weight: bold; text-align: left;'>{away}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": max(0.0, 100.0 - ph - pa), "pa": pa, "xgh": xgh, "xga": xga})
         predictions[group_name] = group_preds
-    
-    # This button will now successfully render because the loop above is un-crashable
     run_mc = st.form_submit_button("Run Analysis", type="primary")
 
 if run_mc:
     mc_results = {g: {t["Team"]: {1:0, 2:0, 3:0, 4:0} for t in groups_data[g]} for g in groups_data}
-    for _ in range(mc_iterations):
+    for _ in range(int(mc_iterations)):
         for g_name in groups_data.keys():
             sim_m6 = [{"home": m["home"], "away": m["away"], "home_score": hg, "away_score": ag} for m in predictions[g_name] for hg, ag in [simulate_match_randomly(m["ph"], m["pt"], m["pa"], m["xgh"], m["xga"])]]
             sorted_s = resolve_ties(calculate_standings(groups_data[g_name], [m for m in past_matches if m["group"] == g_name] + sim_m6), sim_m6)
