@@ -473,9 +473,9 @@ with st.form("mc_form"):
                         f"<img src='{h_l}' width='24' height='24' style='margin-right:8px;'>"
                         f"<b style='font-size:0.85em'>{home}</b></div>", unsafe_allow_html=True)
                 with c[1]: ph  = st.number_input("H%",  key=f"{group_name}_{i}_ph",  value=defaults["ph"])
-                with c[2]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
-                with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
-                with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
+                with c[2]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
+                with c[3]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
+                with c[4]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
                 with c[5]:
                     st.markdown(
                         f"<div style='display:flex;align-items:center;justify-content:flex-start;margin-top:28px;'>"
@@ -486,7 +486,11 @@ with st.form("mc_form"):
                     "ph": ph, "pt": defaults["pd"], "pa": pa, "xgh": xgh, "xga": xga,
                 })
         predictions[group_name] = group_preds
-    run_mc = st.form_submit_button("Predict", type="primary")
+    
+    # Center the Predict button using columns
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        run_mc = st.form_submit_button("Predict", type="primary", use_container_width=True)
 
 if run_mc:
     mc_results = {g: {t["Team"]: {1:0,2:0,3:0,4:0} for t in groups_data[g]} for g in groups_data}
