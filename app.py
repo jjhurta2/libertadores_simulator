@@ -81,7 +81,6 @@ teams_meta = {
 }
 
 # --- PAST MATCH RESULTS (Matchdays 1–5) ---
-# Format: group, home, away, home_score, away_score
 past_matches = [
     # GROUP A
     {"group": "Group A", "home": "Independiente Medellín", "away": "Estudiantes de La Plata",  "home_score": 1, "away_score": 1},
@@ -94,7 +93,6 @@ past_matches = [
     {"group": "Group A", "home": "Cusco FC",               "away": "Estudiantes de La Plata",  "home_score": 1, "away_score": 1},
     {"group": "Group A", "home": "Flamengo",               "away": "Estudiantes de La Plata",  "home_score": 1, "away_score": 0},
     {"group": "Group A", "home": "Cusco FC",               "away": "Independiente Medellín",   "home_score": 2, "away_score": 3},
-    
     # GROUP B
     {"group": "Group B", "home": "Deportes Tolima",        "away": "Universitario",            "home_score": 0, "away_score": 0},
     {"group": "Group B", "home": "Coquimbo Unido",         "away": "Nacional de Football",     "home_score": 1, "away_score": 1},
@@ -106,7 +104,6 @@ past_matches = [
     {"group": "Group B", "home": "Coquimbo Unido",         "away": "Universitario",            "home_score": 2, "away_score": 1},
     {"group": "Group B", "home": "Coquimbo Unido",         "away": "Deportes Tolima",          "home_score": 3, "away_score": 0},
     {"group": "Group B", "home": "Nacional de Football",   "away": "Universitario",            "home_score": 0, "away_score": 0},
-    
     # GROUP C
     {"group": "Group C", "home": "Deportivo La Guaira",    "away": "Fluminense FC",            "home_score": 0, "away_score": 0},
     {"group": "Group C", "home": "Ind. Rivadavia",         "away": "Bolívar",                  "home_score": 1, "away_score": 0},
@@ -118,7 +115,6 @@ past_matches = [
     {"group": "Group C", "home": "Ind. Rivadavia",         "away": "Fluminense FC",            "home_score": 1, "away_score": 1},
     {"group": "Group C", "home": "Fluminense FC",          "away": "Bolívar",                  "home_score": 2, "away_score": 1},
     {"group": "Group C", "home": "Deportivo La Guaira",    "away": "Ind. Rivadavia",           "home_score": 2, "away_score": 4},
-    
     # GROUP D
     {"group": "Group D", "home": "Barcelona S.C.",         "away": "Cruzeiro",                 "home_score": 0, "away_score": 1},
     {"group": "Group D", "home": "Universidad Católica",   "away": "Boca Juniors",             "home_score": 1, "away_score": 2},
@@ -130,7 +126,6 @@ past_matches = [
     {"group": "Group D", "home": "Universidad Católica",   "away": "Cruzeiro",                 "home_score": 0, "away_score": 0},
     {"group": "Group D", "home": "Boca Juniors",           "away": "Cruzeiro",                 "home_score": 1, "away_score": 1},
     {"group": "Group D", "home": "Universidad Católica",   "away": "Barcelona S.C.",           "home_score": 2, "away_score": 0},
-    
     # GROUP E
     {"group": "Group E", "home": "Platense",               "away": "Corinthians",              "home_score": 0, "away_score": 2},
     {"group": "Group E", "home": "Independiente Santa Fe", "away": "Peñarol",                  "home_score": 1, "away_score": 1},
@@ -142,7 +137,6 @@ past_matches = [
     {"group": "Group E", "home": "Platense",               "away": "Peñarol",                  "home_score": 1, "away_score": 1},
     {"group": "Group E", "home": "Independiente Santa Fe", "away": "Platense",                 "home_score": 2, "away_score": 1},
     {"group": "Group E", "home": "Peñarol",                "away": "Corinthians",              "home_score": 1, "away_score": 1},
-    
     # GROUP F
     {"group": "Group F", "home": "Junior FC",              "away": "Palmeiras",                "home_score": 1, "away_score": 1},
     {"group": "Group F", "home": "Sporting Cristal",       "away": "Cerro Porteño",            "home_score": 1, "away_score": 0},
@@ -154,7 +148,6 @@ past_matches = [
     {"group": "Group F", "home": "Junior FC",              "away": "Cerro Porteño",            "home_score": 0, "away_score": 1},
     {"group": "Group F", "home": "Palmeiras",              "away": "Cerro Porteño",            "home_score": 0, "away_score": 1},
     {"group": "Group F", "home": "Junior FC",              "away": "Sporting Cristal",         "home_score": 3, "away_score": 2},
-    
     # GROUP G
     {"group": "Group G", "home": "Always Ready",           "away": "LDU Quito",                "home_score": 0, "away_score": 1},
     {"group": "Group G", "home": "Mirassol",               "away": "Lanús",                    "home_score": 1, "away_score": 0},
@@ -166,7 +159,6 @@ past_matches = [
     {"group": "Group G", "home": "Mirassol",               "away": "LDU Quito",                "home_score": 2, "away_score": 0},
     {"group": "Group G", "home": "Always Ready",           "away": "Mirassol",                 "home_score": 1, "away_score": 2},
     {"group": "Group G", "home": "LDU Quito",              "away": "Lanús",                    "home_score": 2, "away_score": 0},
-    
     # GROUP H
     {"group": "Group H", "home": "Rosario Central",        "away": "Independiente del Valle",  "home_score": 0, "away_score": 0},
     {"group": "Group H", "home": "Universidad Central",    "away": "Libertad",                 "home_score": 3, "away_score": 1},
@@ -219,47 +211,72 @@ def calculate_standings(group_teams, all_group_matches):
     return list(stats.values())
 
 def resolve_ties(teams_list, all_group_matches):
-    points_groups = {}
+    """
+    Tiebreaker criteria (applied in order within a points-tied group):
+      1. H2H points
+      2. H2H goal difference
+      3. H2H goals scored
+      4. Overall goal difference  (overall points is identical for all tied teams — skip it)
+      5. Overall goals scored
+    """
+    def h2h_sort_key(enriched_team):
+        return (
+            enriched_team["h2h_pts"],
+            enriched_team["h2h_gd"],
+            enriched_team["h2h_gs"],
+            enriched_team["overall_gd"],
+            enriched_team["overall_gs"],
+        )
+
+    # Group teams by overall points
+    points_groups: dict = {}
     for team in teams_list:
-        p = team["Points"]
-        if p not in points_groups:
-            points_groups[p] = []
-        points_groups[p].append(team)
-    final_sorted_group = []
+        points_groups.setdefault(team["Points"], []).append(team)
+
+    final_sorted = []
     for p in sorted(points_groups.keys(), reverse=True):
         tied = points_groups[p]
         if len(tied) == 1:
-            final_sorted_group.append(tied[0])
+            final_sorted.append(tied[0])
             continue
-        names = [t["Team"] for t in tied]
-        h2h = [m for m in all_group_matches if m["home"] in names and m["away"] in names]
-        stats = calculate_standings(tied, h2h)
-        for s in stats:
-            orig = next(t for t in tied if t["Team"] == s["Team"])
-            s["Total GD"] = orig["Goal Difference"]
-            s["Total GS"] = orig["Goals Scored"]
-            s["Original Data"] = orig
-        stats.sort(
-            key=lambda x: (
-                x["Points"], x["Goal Difference"], x["Goals Scored"],
-                x["Original Data"]["Points"], x["Total GD"], x["Total GS"]
-            ),
-            reverse=True
-        )
-        for s in stats:
-            final_sorted_group.append(s["Original Data"])
-    for i, t in enumerate(final_sorted_group):
+
+        # Compute H2H stats among only the tied teams
+        names = {t["Team"] for t in tied}
+        h2h_matches = [
+            m for m in all_group_matches
+            if m["home"] in names and m["away"] in names
+        ]
+        h2h_stats_list = calculate_standings(tied, h2h_matches)
+        h2h_by_name = {s["Team"]: s for s in h2h_stats_list}
+
+        enriched = []
+        for team in tied:
+            h2h = h2h_by_name[team["Team"]]
+            enriched.append({
+                **team,
+                "h2h_pts":    h2h["Points"],
+                "h2h_gd":     h2h["Goal Difference"],
+                "h2h_gs":     h2h["Goals Scored"],
+                "overall_gd": team["Goal Difference"],
+                "overall_gs": team["Goals Scored"],
+            })
+
+        enriched.sort(key=h2h_sort_key, reverse=True)
+        final_sorted.extend(enriched)
+
+    for i, t in enumerate(final_sorted):
         t["Position"] = i + 1
-    return final_sorted_group
+
+    return final_sorted
 
 def get_sorted_standings(group_name):
     """Compute and sort standings for a group from past_matches."""
     group_teams = teams_meta[group_name]
     group_matches = [m for m in past_matches if m["group"] == group_name]
     raw = calculate_standings(group_teams, group_matches)
+    # Initial sort by overall points/GD/GS before tie-breaking
     raw.sort(key=lambda x: (x["Points"], x["Goal Difference"], x["Goals Scored"]), reverse=True)
-    sorted_s = resolve_ties(raw, group_matches)
-    return sorted_s
+    return resolve_ties(raw, group_matches)
 
 def simulate_match_randomly(ph, pt, pa, xgh, xga):
     p = [ph / 100, pt / 100, pa / 100]
@@ -317,7 +334,7 @@ def fetch_odds_from_odds_api():
     return resp.json() if resp.status_code == 200 else []
 
 def get_fair_probabilities(home_team, api_odds_data):
-    """Returns (ph, pa, pd) as floats, or fallback (45.0, 30.0, 25.0) if not found."""
+    """Returns (ph, pa, pd) as floats, or fallback if not found."""
     search_name = TEAM_MAP.get(home_team, home_team)
     for match in api_odds_data:
         if not match.get("bookmakers"):
@@ -333,7 +350,6 @@ def get_fair_probabilities(home_team, api_odds_data):
                 return (p_home / total) * 100, (p_away / total) * 100, (p_draw / total) * 100
             except (KeyError, ZeroDivisionError, TypeError):
                 break
-    # Fallback: use equal probabilities
     return 40.0, 30.0, 30.0
 
 def get_match_defaults(home, away, group_data):
@@ -341,33 +357,31 @@ def get_match_defaults(home, away, group_data):
     h_s = next((t for t in group_data if t["Team"] == home), None)
     a_s = next((t for t in group_data if t["Team"] == away), None)
 
-    # xG defaults based on goals scored/conceded per game
-    if h_s and a_s and max(1, h_s["Played"]) and max(1, a_s["Played"]):
+    if h_s and a_s:
+        # HxG: blend home team's attack rate with away team's defensive weakness, plus home boost
         h_xg = ((h_s["Goals Scored"] / max(1, h_s["Played"])) +
                 (a_s["Goals Received"] / max(1, a_s["Played"]))) / 2 + 0.2
+        # AxG: blend away team's attack rate with home team's defensive weakness
         a_xg = ((a_s["Goals Scored"] / max(1, a_s["Played"])) +
                 (h_s["Goals Received"] / max(1, h_s["Played"]))) / 2
     else:
         h_xg, a_xg = 1.3, 1.0
 
-    # Probability defaults from odds API (safe — always returns numbers now)
     api_data = fetch_odds_from_odds_api()
     ph, pa, pd = get_fair_probabilities(home, api_data)
 
     return {
-        "ph": round(float(ph), 1),
-        "pa": round(float(pa), 1),
-        "pd": round(float(pd), 1),
+        "ph":  round(float(ph),  1),
+        "pa":  round(float(pa),  1),
+        "pd":  round(float(pd),  1),
         "xgh": round(float(h_xg), 2),
         "xga": round(float(a_xg), 2),
     }
 
 # --- BUILD groups_data FROM PAST MATCHES ---
-# This replaces the hardcoded standings with computed ones.
 groups_data = {}
 for group_name in teams_meta:
-    sorted_standings = get_sorted_standings(group_name)
-    groups_data[group_name] = sorted_standings
+    groups_data[group_name] = get_sorted_standings(group_name)
 
 # --- UI: STANDINGS TABLES ---
 group_items = list(groups_data.items())
@@ -423,8 +437,8 @@ with st.form("mc_form"):
                         f"<b style='font-size:0.85em'>{home}</b></div>",
                         unsafe_allow_html=True,
                     )
-                with c[1]: ph = st.number_input("H%",  key=f"{group_name}_{i}_ph",  value=defaults["ph"])
-                with c[2]: pa = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
+                with c[1]: ph  = st.number_input("H%",  key=f"{group_name}_{i}_ph",  value=defaults["ph"])
+                with c[2]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
                 with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
                 with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
                 with c[5]:
