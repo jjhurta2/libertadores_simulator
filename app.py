@@ -175,52 +175,34 @@ past_matches = [
 # ---------------------------------------------------------------------------
 # DIXON-COLES ATTACK / DEFENSE RATINGS
 # ---------------------------------------------------------------------------
-# Model: E[goals_home] = attack_home × defense_away × home_adv × mu
-#        E[goals_away] = attack_away × defense_home × mu
-# All parameters are estimated per-group by minimising negative Poisson
-# log-likelihood over the 10 observed group matches.
-#
-# Parameters vector layout (for N teams):
-#   [attack_0 … attack_{N-1}, defense_0 … defense_{N-1}, log_home_adv]
-# Constraints: mean(attack) = 1  (one parameter fixed for identifiability)
-# ---------------------------------------------------------------------------
-
 @st.cache_data(ttl=3600)
 def fit_ratings(group_name: str) -> dict:
-    """
-    Returns dict with keys 'attack', 'defense' (both dicts team→float)
-    and 'home_adv' (float multiplier, typically ~1.1–1.3).
-    Falls back to neutral ratings if optimisation fails.
-    """
     matches = [m for m in past_matches if m["group"] == group_name]
     teams   = [t["Team"] for t in teams_meta[group_name]]
     n       = len(teams)
     idx     = {t: i for i, t in enumerate(teams)}
 
-    # Collect all goals for a quick league-average mu
     all_goals = [m["home_score"] for m in matches] + [m["away_score"] for m in matches]
-    mu = max(np.mean(all_goals), 0.5)   # global average goals per team per match
+    mu = max(np.mean(all_goals), 0.5)
 
     def neg_log_likelihood(params):
-        attacks  = np.exp(params[:n])           # keep positive via exp
+        attacks  = np.exp(params[:n])
         defenses = np.exp(params[n:2*n])
         home_adv = np.exp(params[2*n])
 
-        # Identifiability: normalise so mean attack = 1
         attacks  = attacks  / attacks.mean()
         defenses = defenses / defenses.mean()
 
         nll = 0.0
         for m in matches:
             hi, ai = idx[m["home"]], idx[m["away"]]
-            lam_h = attacks[hi] * defenses[ai] * home_adv * mu   # home xG
-            lam_a = attacks[ai] * defenses[hi] * mu               # away xG
-            # Poisson log-likelihood (ignoring factorial constant)
+            lam_h = attacks[hi] * defenses[ai] * home_adv * mu
+            lam_a = attacks[ai] * defenses[hi] * mu
             nll -= (m["home_score"] * np.log(lam_h + 1e-9) - lam_h)
             nll -= (m["away_score"] * np.log(lam_a + 1e-9) - lam_a)
         return nll
 
-    x0 = np.zeros(2 * n + 1)   # start: all ones in original space (log(1)=0)
+    x0 = np.zeros(2 * n + 1)
     result = minimize(neg_log_likelihood, x0, method="L-BFGS-B")
 
     if result.success or result.fun < neg_log_likelihood(x0):
@@ -229,7 +211,6 @@ def fit_ratings(group_name: str) -> dict:
         defenses = np.exp(params[n:2*n]); defenses /= defenses.mean()
         home_adv = float(np.exp(params[2*n]))
     else:
-        # Fallback: equal ratings
         attacks  = np.ones(n)
         defenses = np.ones(n)
         home_adv = 1.15
@@ -242,19 +223,13 @@ def fit_ratings(group_name: str) -> dict:
     }
 
 def dixon_coles_xg(home: str, away: str, ratings: dict) -> tuple[float, float]:
-    """
-    Return (xg_home, xg_away) using fitted attack/defense ratings.
-    E[goals_home] = attack_home × defense_away × home_adv × mu
-    E[goals_away] = attack_away × defense_home × mu
-    """
     a, d, ha, mu = ratings["attack"], ratings["defense"], ratings["home_adv"], ratings["mu"]
     xg_h = a[home] * d[away] * ha * mu
     xg_a = a[away] * d[home] * mu
-    # Clip to a sensible range so Poisson draws don't explode
     return round(max(0.3, min(xg_h, 5.0)), 2), round(max(0.3, min(xg_a, 5.0)), 2)
 
 # ---------------------------------------------------------------------------
-# STANDINGS / TIE-BREAK LOGIC  (unchanged)
+# STANDINGS / TIE-BREAK LOGIC
 # ---------------------------------------------------------------------------
 def calculate_standings(group_teams, all_group_matches):
     logo_map = {t["Team"]: t["Logo"] for t in group_teams}
@@ -387,10 +362,6 @@ if st.button("Debug: Test Odds API"):
         st.warning("Empty response — no markets available yet, or API key issue")
 
 def xg_to_probabilities(xgh: float, xga: float, max_goals: int = 8) -> tuple:
-    """
-    Derive win/draw/loss probabilities analytically from two Poisson
-    distributions with means xgh and xga.
-    """
     from scipy.stats import poisson
     home_win = draw = away_win = 0.0
     for h in range(max_goals + 1):
@@ -413,7 +384,6 @@ def get_match_defaults(home, away, group_name):
     api_data = fetch_odds_from_odds_api()
     ph, pa, pd = get_fair_probabilities(home, api_data)
 
-    # If API has no data, derive probabilities from Dixon-Coles xG
     if ph == 50.0 and pa == 20.0 and pd == 30.0:
         ph, pd, pa = xg_to_probabilities(xgh, xga)
 
@@ -430,7 +400,8 @@ groups_data = {}
 for group_name in teams_meta:
     groups_data[group_name] = get_sorted_standings(group_name)
 
-# --- UI: STANDINGS TABLES ---
+# --- UI: STANDINGS TABLES WITH HTML UNIFICATION ---
+# Replaces the st.data_editor block to embed logo and text in the same cell
 group_items = list(groups_data.items())
 for i in range(0, len(group_items), 2):
     c1, c2 = st.columns(2)
@@ -439,14 +410,34 @@ for i in range(0, len(group_items), 2):
             g_name, g_data = group_items[i + idx]
             with col:
                 st.subheader(g_name)
-                st.data_editor(
-                    create_group_df(g_data),
-                    column_config={
-                        "Logo": st.column_config.ImageColumn("Logo", help="Team Logo"),
-                        "Pos":  st.column_config.NumberColumn("Pos", format="%d"),
-                    },
-                    hide_index=True, use_container_width=True, disabled=True,
+                
+                display_df = create_group_df(g_data)
+                df_display = display_df.copy()
+                
+                # Create a single column "Team" with HTML embedding the logo image and team name
+                df_display['Team'] = df_display.apply(
+                    lambda x: f'<div style="display: flex; align-items: center;"><img src="{x["Logo"]}" width="24" style="margin-right: 10px;"> {x["Team"]}</div>', 
+                    axis=1
                 )
+                # Drop the original Logo column
+                df_display = df_display.drop(columns=['Logo'])
+                
+                # Render to an HTML table string
+                html_table = df_display.to_html(escape=False, index=False, justify='left')
+                
+                # Apply custom CSS to ensure it looks like a clean Streamlit table
+                styled_html = f"""
+                <style>
+                .custom-table table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; margin-bottom: 20px; }}
+                .custom-table th {{ border-bottom: 1px solid rgba(128, 128, 128, 0.2); padding: 10px 8px; text-align: left; font-weight: 600; color: inherit; }}
+                .custom-table td {{ border-bottom: 1px solid rgba(128, 128, 128, 0.2); padding: 8px; color: inherit; }}
+                </style>
+                <div class="custom-table">
+                {html_table}
+                </div>
+                """
+                
+                st.write(styled_html, unsafe_allow_html=True)
 
 st.divider()
 st.header("Matchday 6 Simulator")
