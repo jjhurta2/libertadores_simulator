@@ -413,8 +413,9 @@ def get_fair_probabilities(home_team, api_odds_data):
 
     return 50.0, 20.0, 30.0
 
-if st.button("Debug: Test Odds API"):
-    debug_odds_api()
+# Debug button hidden - uncomment the lines below if needed for troubleshooting
+# if st.button("Debug: Test Odds API"):
+#     debug_odds_api()
 
 def xg_to_probabilities(xgh: float, xga: float, max_goals: int = 8) -> tuple:
     from scipy.stats import poisson
