@@ -3,6 +3,17 @@ import pandas as pd
 import numpy as np
 import requests
 import json
+import streamlit as st
+
+def get_api_key():
+    """Retrieves the API key securely from Streamlit secrets."""
+    try:
+        # st.secrets acts like a dictionary
+        return st.secrets["ODDS_API_KEY"]
+    except KeyError:
+        st.error("API Key not found! Ensure your .streamlit/secrets.toml file exists locally "
+                 "or that the secret is set in your Streamlit Cloud dashboard.")
+        st.stop() # Stops the app execution so it doesn't try to run the simulation without a key
 
 # Configure the page layout
 st.set_page_config(page_title="Copa Libertadores 2026 Simulator", layout="wide")
