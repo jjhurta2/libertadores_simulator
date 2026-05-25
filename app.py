@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
+from scipy.optimize import minimize
 
 # --- SECURE API KEY ---
 def get_api_key():
@@ -11,7 +12,6 @@ def get_api_key():
         st.error("API Key not found! Ensure your .streamlit/secrets.toml file exists.")
         st.stop()
 
-# Configure the page layout
 st.set_page_config(page_title="Copa Libertadores 2026 Predictor", layout="wide")
 st.title("Copa Libertadores 2026 Predictor")
 
@@ -28,7 +28,7 @@ def create_group_df(data):
     })
     return df[["Pos", "Logo", "Team", "GP", "W", "D", "L", "GF", "GA", "+/-", "Points"]]
 
-# --- TEAM METADATA (logos only, no standings) ---
+# --- TEAM METADATA ---
 teams_meta = {
     "Group A": [
         {"Team": "Flamengo",                    "Logo": get_logo_url("flamengo.png")},
@@ -172,7 +172,90 @@ past_matches = [
     {"group": "Group H", "home": "Independiente del Valle","away": "Libertad",                 "home_score": 4, "away_score": 1},
 ]
 
-# --- LOGIC ---
+# ---------------------------------------------------------------------------
+# DIXON-COLES ATTACK / DEFENSE RATINGS
+# ---------------------------------------------------------------------------
+# Model: E[goals_home] = attack_home × defense_away × home_adv × mu
+#        E[goals_away] = attack_away × defense_home × mu
+# All parameters are estimated per-group by minimising negative Poisson
+# log-likelihood over the 10 observed group matches.
+#
+# Parameters vector layout (for N teams):
+#   [attack_0 … attack_{N-1}, defense_0 … defense_{N-1}, log_home_adv]
+# Constraints: mean(attack) = 1  (one parameter fixed for identifiability)
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=3600)
+def fit_ratings(group_name: str) -> dict:
+    """
+    Returns dict with keys 'attack', 'defense' (both dicts team→float)
+    and 'home_adv' (float multiplier, typically ~1.1–1.3).
+    Falls back to neutral ratings if optimisation fails.
+    """
+    matches = [m for m in past_matches if m["group"] == group_name]
+    teams   = [t["Team"] for t in teams_meta[group_name]]
+    n       = len(teams)
+    idx     = {t: i for i, t in enumerate(teams)}
+
+    # Collect all goals for a quick league-average mu
+    all_goals = [m["home_score"] for m in matches] + [m["away_score"] for m in matches]
+    mu = max(np.mean(all_goals), 0.5)   # global average goals per team per match
+
+    def neg_log_likelihood(params):
+        attacks  = np.exp(params[:n])           # keep positive via exp
+        defenses = np.exp(params[n:2*n])
+        home_adv = np.exp(params[2*n])
+
+        # Identifiability: normalise so mean attack = 1
+        attacks  = attacks  / attacks.mean()
+        defenses = defenses / defenses.mean()
+
+        nll = 0.0
+        for m in matches:
+            hi, ai = idx[m["home"]], idx[m["away"]]
+            lam_h = attacks[hi] * defenses[ai] * home_adv * mu   # home xG
+            lam_a = attacks[ai] * defenses[hi] * mu               # away xG
+            # Poisson log-likelihood (ignoring factorial constant)
+            nll -= (m["home_score"] * np.log(lam_h + 1e-9) - lam_h)
+            nll -= (m["away_score"] * np.log(lam_a + 1e-9) - lam_a)
+        return nll
+
+    x0 = np.zeros(2 * n + 1)   # start: all ones in original space (log(1)=0)
+    result = minimize(neg_log_likelihood, x0, method="L-BFGS-B")
+
+    if result.success or result.fun < neg_log_likelihood(x0):
+        params   = result.x
+        attacks  = np.exp(params[:n]);  attacks  /= attacks.mean()
+        defenses = np.exp(params[n:2*n]); defenses /= defenses.mean()
+        home_adv = float(np.exp(params[2*n]))
+    else:
+        # Fallback: equal ratings
+        attacks  = np.ones(n)
+        defenses = np.ones(n)
+        home_adv = 1.15
+
+    return {
+        "attack":   {t: float(attacks[i])  for i, t in enumerate(teams)},
+        "defense":  {t: float(defenses[i]) for i, t in enumerate(teams)},
+        "home_adv": home_adv,
+        "mu":       mu,
+    }
+
+def dixon_coles_xg(home: str, away: str, ratings: dict) -> tuple[float, float]:
+    """
+    Return (xg_home, xg_away) using fitted attack/defense ratings.
+    E[goals_home] = attack_home × defense_away × home_adv × mu
+    E[goals_away] = attack_away × defense_home × mu
+    """
+    a, d, ha, mu = ratings["attack"], ratings["defense"], ratings["home_adv"], ratings["mu"]
+    xg_h = a[home] * d[away] * ha * mu
+    xg_a = a[away] * d[home] * mu
+    # Clip to a sensible range so Poisson draws don't explode
+    return round(max(0.3, min(xg_h, 5.0)), 2), round(max(0.3, min(xg_a, 5.0)), 2)
+
+# ---------------------------------------------------------------------------
+# STANDINGS / TIE-BREAK LOGIC  (unchanged)
+# ---------------------------------------------------------------------------
 def calculate_standings(group_teams, all_group_matches):
     logo_map = {t["Team"]: t["Logo"] for t in group_teams}
     stats = {
@@ -186,49 +269,25 @@ def calculate_standings(group_teams, all_group_matches):
     for m in all_group_matches:
         home, away, hg, ag = m["home"], m["away"], m["home_score"], m["away_score"]
         if home in stats and away in stats:
-            stats[home]["Played"] += 1
-            stats[away]["Played"] += 1
-            stats[home]["Goals Scored"] += hg
-            stats[home]["Goals Received"] += ag
-            stats[away]["Goals Scored"] += ag
-            stats[away]["Goals Received"] += hg
+            stats[home]["Played"] += 1;  stats[away]["Played"] += 1
+            stats[home]["Goals Scored"]   += hg;  stats[home]["Goals Received"] += ag
+            stats[away]["Goals Scored"]   += ag;  stats[away]["Goals Received"] += hg
             if hg > ag:
-                stats[home]["Won"] += 1
-                stats[home]["Points"] += 3
-                stats[away]["Lost"] += 1
+                stats[home]["Won"] += 1;  stats[home]["Points"] += 3;  stats[away]["Lost"] += 1
             elif ag > hg:
-                stats[away]["Won"] += 1
-                stats[away]["Points"] += 3
-                stats[home]["Lost"] += 1
+                stats[away]["Won"] += 1;  stats[away]["Points"] += 3;  stats[home]["Lost"] += 1
             else:
-                stats[home]["Drawn"] += 1
-                stats[away]["Drawn"] += 1
-                stats[home]["Points"] += 1
-                stats[away]["Points"] += 1
+                stats[home]["Drawn"] += 1;  stats[away]["Drawn"] += 1
+                stats[home]["Points"] += 1;  stats[away]["Points"] += 1
     for team in stats:
         stats[team]["Goal Difference"] = stats[team]["Goals Scored"] - stats[team]["Goals Received"]
         stats[team]["Team"] = team
     return list(stats.values())
 
 def resolve_ties(teams_list, all_group_matches):
-    """
-    Tiebreaker criteria (applied in order within a points-tied group):
-      1. H2H points
-      2. H2H goal difference
-      3. H2H goals scored
-      4. Overall goal difference  (overall points is identical for all tied teams — skip it)
-      5. Overall goals scored
-    """
-    def h2h_sort_key(enriched_team):
-        return (
-            enriched_team["h2h_pts"],
-            enriched_team["h2h_gd"],
-            enriched_team["h2h_gs"],
-            enriched_team["overall_gd"],
-            enriched_team["overall_gs"],
-        )
+    def h2h_sort_key(t):
+        return (t["h2h_pts"], t["h2h_gd"], t["h2h_gs"], t["overall_gd"], t["overall_gs"])
 
-    # Group teams by overall points
     points_groups: dict = {}
     for team in teams_list:
         points_groups.setdefault(team["Points"], []).append(team)
@@ -237,44 +296,28 @@ def resolve_ties(teams_list, all_group_matches):
     for p in sorted(points_groups.keys(), reverse=True):
         tied = points_groups[p]
         if len(tied) == 1:
-            final_sorted.append(tied[0])
-            continue
-
-        # Compute H2H stats among only the tied teams
+            final_sorted.append(tied[0]);  continue
         names = {t["Team"] for t in tied}
-        h2h_matches = [
-            m for m in all_group_matches
-            if m["home"] in names and m["away"] in names
-        ]
-        h2h_stats_list = calculate_standings(tied, h2h_matches)
-        h2h_by_name = {s["Team"]: s for s in h2h_stats_list}
-
+        h2h_matches = [m for m in all_group_matches if m["home"] in names and m["away"] in names]
+        h2h_by_name = {s["Team"]: s for s in calculate_standings(tied, h2h_matches)}
         enriched = []
         for team in tied:
             h2h = h2h_by_name[team["Team"]]
-            enriched.append({
-                **team,
-                "h2h_pts":    h2h["Points"],
-                "h2h_gd":     h2h["Goal Difference"],
-                "h2h_gs":     h2h["Goals Scored"],
-                "overall_gd": team["Goal Difference"],
-                "overall_gs": team["Goals Scored"],
-            })
-
+            enriched.append({**team,
+                "h2h_pts": h2h["Points"], "h2h_gd": h2h["Goal Difference"],
+                "h2h_gs":  h2h["Goals Scored"],
+                "overall_gd": team["Goal Difference"], "overall_gs": team["Goals Scored"]})
         enriched.sort(key=h2h_sort_key, reverse=True)
         final_sorted.extend(enriched)
 
     for i, t in enumerate(final_sorted):
         t["Position"] = i + 1
-
     return final_sorted
 
 def get_sorted_standings(group_name):
-    """Compute and sort standings for a group from past_matches."""
-    group_teams = teams_meta[group_name]
+    group_teams   = teams_meta[group_name]
     group_matches = [m for m in past_matches if m["group"] == group_name]
     raw = calculate_standings(group_teams, group_matches)
-    # Initial sort by overall points/GD/GS before tie-breaking
     raw.sort(key=lambda x: (x["Points"], x["Goal Difference"], x["Goals Scored"]), reverse=True)
     return resolve_ties(raw, group_matches)
 
@@ -283,46 +326,28 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
     outcome = np.random.choice(['H', 'D', 'A'], p=p)
     for _ in range(100):
         hg, ag = np.random.poisson(xgh), np.random.poisson(xga)
-        if ((outcome == 'H' and hg > ag) or
-                (outcome == 'D' and hg == ag) or
-                (outcome == 'A' and hg < ag)):
+        if ((outcome == 'H' and hg > ag) or (outcome == 'D' and hg == ag) or (outcome == 'A' and hg < ag)):
             return hg, ag
     return (1, 0) if outcome == 'H' else (0, 0) if outcome == 'D' else (0, 1)
 
 # --- API HELPERS ---
 TEAM_MAP = {
-    "Flamengo": "Flamengo",
-    "Independiente Medellín": "Independiente Medellín",
-    "Estudiantes de La Plata": "Estudiantes de La Plata",
-    "Cusco FC": "Cusco FC",
-    "Coquimbo Unido": "Coquimbo Unido",
-    "Deportes Tolima": "Deportes Tolima",
-    "Universitario": "Club Universitario de Deportes",
-    "Nacional de Football": "Club Nacional de Football",
-    "Ind. Rivadavia": "Independiente Rivadavia",
-    "Bolívar": "Club Bolívar",
-    "Fluminense FC": "Fluminense FC",
-    "Deportivo La Guaira": "Deportivo La Guaira F.C.",
-    "Universidad Católica": "Club Deportivo Universidad Católica",
-    "Cruzeiro": "Cruzeiro Esporte Clube",
-    "Boca Juniors": "Boca Juniors",
-    "Barcelona S.C.": "Barcelona S.C.",
-    "Corinthians": "Sport Club Corinthians Paulista",
-    "Platense": "Club Atlético Platense",
-    "Independiente Santa Fe": "Independiente Santa Fe",
-    "Peñarol": "Club Atlético Peñarol",
-    "Cerro Porteño": "Club Cerro Porteño",
-    "Palmeiras": "SE Palmeiras",
-    "Sporting Cristal": "Club Sporting Cristal",
-    "Junior FC": "Junior FC",
-    "Mirassol": "Mirassol Futebol Clube",
-    "LDU Quito": "LDU Quito",
-    "Lanús": "Club Atlético Lanús",
-    "Always Ready": "Club Always Ready",
-    "Rosario Central": "Club Atlético Rosario Central",
-    "Independiente del Valle": "Independiente del Valle",
-    "Universidad Central": "Universidad Central de Venezuela F.C.",
-    "Libertad": "Club Libertad",
+    "Flamengo": "Flamengo", "Independiente Medellín": "Independiente Medellín",
+    "Estudiantes de La Plata": "Estudiantes de La Plata", "Cusco FC": "Cusco FC",
+    "Coquimbo Unido": "Coquimbo Unido", "Deportes Tolima": "Deportes Tolima",
+    "Universitario": "Club Universitario de Deportes", "Nacional de Football": "Club Nacional de Football",
+    "Ind. Rivadavia": "Independiente Rivadavia", "Bolívar": "Club Bolívar",
+    "Fluminense FC": "Fluminense FC", "Deportivo La Guaira": "Deportivo La Guaira F.C.",
+    "Universidad Católica": "Club Deportivo Universidad Católica", "Cruzeiro": "Cruzeiro Esporte Clube",
+    "Boca Juniors": "Boca Juniors", "Barcelona S.C.": "Barcelona S.C.",
+    "Corinthians": "Sport Club Corinthians Paulista", "Platense": "Club Atlético Platense",
+    "Independiente Santa Fe": "Independiente Santa Fe", "Peñarol": "Club Atlético Peñarol",
+    "Cerro Porteño": "Club Cerro Porteño", "Palmeiras": "SE Palmeiras",
+    "Sporting Cristal": "Club Sporting Cristal", "Junior FC": "Junior FC",
+    "Mirassol": "Mirassol Futebol Clube", "LDU Quito": "LDU Quito",
+    "Lanús": "Club Atlético Lanús", "Always Ready": "Club Always Ready",
+    "Rosario Central": "Club Atlético Rosario Central", "Independiente del Valle": "Independiente del Valle",
+    "Universidad Central": "Universidad Central de Venezuela F.C.", "Libertad": "Club Libertad",
 }
 
 @st.cache_data(ttl=3600)
@@ -334,7 +359,6 @@ def fetch_odds_from_odds_api():
     return resp.json() if resp.status_code == 200 else []
 
 def get_fair_probabilities(home_team, api_odds_data):
-    """Returns (ph, pa, pd) as floats, or fallback if not found."""
     search_name = TEAM_MAP.get(home_team, home_team)
     for match in api_odds_data:
         if not match.get("bookmakers"):
@@ -346,36 +370,23 @@ def get_fair_probabilities(home_team, api_odds_data):
                 p_home = 1 / odds.get(match["home_team"], 2.0)
                 p_away = 1 / odds.get(match["away_team"], 2.0)
                 p_draw = 1 / odds.get("Draw", 3.0)
-                total = p_home + p_away + p_draw
-                return (p_home / total) * 100, (p_away / total) * 100, (p_draw / total) * 100
+                total  = p_home + p_away + p_draw
+                return (p_home/total)*100, (p_away/total)*100, (p_draw/total)*100
             except (KeyError, ZeroDivisionError, TypeError):
                 break
     return 40.0, 30.0, 30.0
 
-def get_match_defaults(home, away, group_data):
-    """Compute default inputs for the match simulator form."""
-    h_s = next((t for t in group_data if t["Team"] == home), None)
-    a_s = next((t for t in group_data if t["Team"] == away), None)
-
-    if h_s and a_s:
-        # HxG: blend home team's attack rate with away team's defensive weakness, plus home boost
-        h_xg = ((h_s["Goals Scored"] / max(1, h_s["Played"])) +
-                (a_s["Goals Received"] / max(1, a_s["Played"]))) / 2 + 0.2
-        # AxG: blend away team's attack rate with home team's defensive weakness
-        a_xg = ((a_s["Goals Scored"] / max(1, a_s["Played"])) +
-                (h_s["Goals Received"] / max(1, h_s["Played"]))) / 2
-    else:
-        h_xg, a_xg = 1.3, 1.0
-
+def get_match_defaults(home, away, group_name):
+    ratings = fit_ratings(group_name)
+    xgh, xga = dixon_coles_xg(home, away, ratings)
     api_data = fetch_odds_from_odds_api()
     ph, pa, pd = get_fair_probabilities(home, api_data)
-
     return {
         "ph":  round(float(ph),  1),
         "pa":  round(float(pa),  1),
         "pd":  round(float(pd),  1),
-        "xgh": round(float(h_xg), 2),
-        "xga": round(float(a_xg), 2),
+        "xgh": xgh,
+        "xga": xga,
     }
 
 # --- BUILD groups_data FROM PAST MATCHES ---
@@ -396,11 +407,9 @@ for i in range(0, len(group_items), 2):
                     create_group_df(g_data),
                     column_config={
                         "Logo": st.column_config.ImageColumn("Logo", help="Team Logo"),
-                        "Pos": st.column_config.NumberColumn("Pos", format="%d"),
+                        "Pos":  st.column_config.NumberColumn("Pos", format="%d"),
                     },
-                    hide_index=True,
-                    use_container_width=True,
-                    disabled=True,
+                    hide_index=True, use_container_width=True, disabled=True,
                 )
 
 st.divider()
@@ -425,7 +434,7 @@ with st.form("mc_form"):
         group_preds = []
         match_cols = st.columns(2)
         for i, (home, away) in enumerate(fixtures):
-            defaults = get_match_defaults(home, away, groups_data[group_name])
+            defaults = get_match_defaults(home, away, group_name)
             h_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == home), "")
             a_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == away), "")
             with match_cols[i]:
@@ -434,9 +443,7 @@ with st.form("mc_form"):
                     st.markdown(
                         f"<div style='display:flex;align-items:center;justify-content:flex-end;margin-top:28px;'>"
                         f"<img src='{h_l}' width='24' height='24' style='margin-right:8px;'>"
-                        f"<b style='font-size:0.85em'>{home}</b></div>",
-                        unsafe_allow_html=True,
-                    )
+                        f"<b style='font-size:0.85em'>{home}</b></div>", unsafe_allow_html=True)
                 with c[1]: ph  = st.number_input("H%",  key=f"{group_name}_{i}_ph",  value=defaults["ph"])
                 with c[2]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
                 with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
@@ -445,23 +452,17 @@ with st.form("mc_form"):
                     st.markdown(
                         f"<div style='display:flex;align-items:center;justify-content:flex-start;margin-top:28px;'>"
                         f"<img src='{a_l}' width='24' height='24' style='margin-right:8px;'>"
-                        f"<b style='font-size:0.85em'>{away}</b></div>",
-                        unsafe_allow_html=True,
-                    )
+                        f"<b style='font-size:0.85em'>{away}</b></div>", unsafe_allow_html=True)
                 group_preds.append({
                     "group": group_name, "home": home, "away": away,
                     "ph": ph, "pt": defaults["pd"], "pa": pa, "xgh": xgh, "xga": xga,
                 })
         predictions[group_name] = group_preds
-
     run_mc = st.form_submit_button("Predict", type="primary")
 
 if run_mc:
-    mc_results = {
-        g: {t["Team"]: {1: 0, 2: 0, 3: 0, 4: 0} for t in groups_data[g]}
-        for g in groups_data
-    }
-    group_past = {g: [m for m in past_matches if m["group"] == g] for g in groups_data}
+    mc_results = {g: {t["Team"]: {1:0,2:0,3:0,4:0} for t in groups_data[g]} for g in groups_data}
+    group_past  = {g: [m for m in past_matches if m["group"] == g] for g in groups_data}
 
     for _ in range(int(mc_iterations)):
         for g_name in groups_data.keys():
@@ -469,18 +470,16 @@ if run_mc:
             for m in predictions[g_name]:
                 hg, ag = simulate_match_randomly(m["ph"], m["pt"], m["pa"], m["xgh"], m["xga"])
                 sim_m6.append({"home": m["home"], "away": m["away"], "home_score": hg, "away_score": ag})
-
-            all_matches = group_past[g_name] + sim_m6
+            all_matches  = group_past[g_name] + sim_m6
             raw_standings = calculate_standings(teams_meta[g_name], all_matches)
-            sorted_s = resolve_ties(raw_standings, all_matches)
-
+            sorted_s      = resolve_ties(raw_standings, all_matches)
             for pos, team in enumerate(sorted_s):
                 mc_results[g_name][team["Team"]][pos + 1] += 1
 
     for g_name in groups_data.keys():
         st.subheader(f"{g_name} Matrix")
         df_res = pd.DataFrame([
-            {"Team": t, **{f"{p}º": f"{(c / mc_iterations) * 100:.1f}%" for p, c in pos.items()}}
+            {"Team": t, **{f"{p}º": f"{(c/mc_iterations)*100:.1f}%" for p, c in pos.items()}}
             for t, pos in mc_results[g_name].items()
         ])
         st.dataframe(df_res, hide_index=True, use_container_width=True)
