@@ -374,7 +374,7 @@ def get_fair_probabilities(home_team, api_odds_data):
                 return (p_home/total)*100, (p_away/total)*100, (p_draw/total)*100
             except (KeyError, ZeroDivisionError, TypeError):
                 break
-    return 40.0, 30.0, 30.0
+    return 50.0, 20.0, 30.0
     
 if st.button("Debug: Test Odds API"):
     raw = fetch_odds_from_odds_api()
@@ -385,11 +385,37 @@ if st.button("Debug: Test Odds API"):
     else:
         st.warning("Empty response — no markets available yet, or API key issue")
 
+def xg_to_probabilities(xgh: float, xga: float, max_goals: int = 8) -> tuple:
+    """
+    Derive win/draw/loss probabilities analytically from two Poisson
+    distributions with means xgh and xga.
+    """
+    from scipy.stats import poisson
+    home_win = draw = away_win = 0.0
+    for h in range(max_goals + 1):
+        for a in range(max_goals + 1):
+            p = poisson.pmf(h, xgh) * poisson.pmf(a, xga)
+            if h > a:   home_win += p
+            elif h == a: draw    += p
+            else:        away_win += p
+    total = home_win + draw + away_win
+    return (
+        round((home_win / total) * 100, 1),
+        round((draw     / total) * 100, 1),
+        round((away_win / total) * 100, 1),
+    )
+
 def get_match_defaults(home, away, group_name):
     ratings = fit_ratings(group_name)
     xgh, xga = dixon_coles_xg(home, away, ratings)
+
     api_data = fetch_odds_from_odds_api()
     ph, pa, pd = get_fair_probabilities(home, api_data)
+
+    # If API has no data, derive probabilities from Dixon-Coles xG
+    if ph == 50.0 and pa == 20.0 and pd == 30.0:
+        ph, pd, pa = xg_to_probabilities(xgh, xga)
+
     return {
         "ph":  round(float(ph),  1),
         "pa":  round(float(pa),  1),
