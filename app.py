@@ -31,6 +31,12 @@ def fetch_odds_from_odds_api():
 
 def get_fair_probabilities(home_team_name, api_odds_data):
     """Finds the match and converts decimal odds to normalized probabilities."""
+    if not api_odds_data:
+        st.write("API returned empty data.")
+    else:
+        # Show us what the API thinks the home teams are
+        api_home_teams = [m['home_team'] for m in api_odds_data]
+        st.write(f"Looking for '{home_team_name}'. Found these in API: {api_home_teams}")
     for match in api_odds_data:
         # Simple fuzzy matching (checking if our team name is inside the API name)
         if home_team_name.lower() in match['home_team'].lower():
