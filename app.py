@@ -3,23 +3,61 @@ import pandas as pd
 import numpy as np
 import requests
 import json
-import streamlit as st
 
+# --- SECURE KEY RETRIEVAL ---
 def get_api_key():
-    """Retrieves the API key securely from Streamlit secrets."""
     try:
-        # st.secrets acts like a dictionary
         return st.secrets["ODDS_API_KEY"]
     except KeyError:
         st.error("API Key not found! Ensure your .streamlit/secrets.toml file exists locally "
                  "or that the secret is set in your Streamlit Cloud dashboard.")
-        st.stop() # Stops the app execution so it doesn't try to run the simulation without a key
+        st.stop()
 
-# Configure the page layout
+# --- ODDS API INTEGRATION ---
+@st.cache_data(ttl=3600)
+def fetch_odds_from_odds_api():
+    api_key = get_api_key()
+    url = "https://api.the-odds-api.com/v4/sports/soccer_conmebol_libertadores/odds/"
+    params = {
+        "apiKey": api_key,
+        "regions": "us",
+        "markets": "h2h",
+        "dateFormat": "iso"
+    }
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json()
+    return []
+
+def get_fair_probabilities(home_team_name, api_odds_data):
+    """Finds the match and converts decimal odds to normalized probabilities."""
+    for match in api_odds_data:
+        # Simple fuzzy matching (checking if our team name is inside the API name)
+        if home_team_name.lower() in match['home_team'].lower():
+            # Find the first bookmaker (usually DraftKings or similar)
+            bookmaker = match['bookmakers'][0]
+            outcomes = bookmaker['markets'][0]['outcomes']
+            
+            # Extract decimal odds
+            d_home = next(o['price'] for o in outcomes if home_team_name.lower() in o['name'].lower())
+            d_away = next(o['price'] for o in outcomes if o['name'].lower() != match['home_team'].lower() and o['name'] != 'Draw')
+            d_draw = next(o['price'] for o in outcomes if o['name'] == 'Draw')
+            
+            # Calculate Implied Probabilities
+            p_home = 1 / d_home
+            p_away = 1 / d_away
+            p_draw = 1 / d_draw
+            
+            # Normalize (Sum to 100%)
+            total = p_home + p_away + p_draw
+            return (p_home / total) * 100, (p_away / total) * 100, (p_draw / total) * 100
+    
+    return 45.0, 45.0, 10.0 # Default fallback if match not found
+
+# --- REST OF YOUR APP ---
 st.set_page_config(page_title="Copa Libertadores 2026 Simulator", layout="wide")
 st.title("🏆 Copa Libertadores 2026 Simulator")
 
-# --- DATA FORMATTING ---
 def get_logo_url(filename):
     return f"https://github.com/jjhurta2/libertadores_simulator/blob/main/{filename}?raw=true"
 
@@ -32,7 +70,7 @@ def create_group_df(data):
     })
     return df[["Pos", "Logo", "Team", "GP", "W", "D", "L", "GF", "GA", "+/-", "Points"]]
 
-# --- GROUPS DATA ---
+# [KEEP YOUR GROUPS_DATA DICTIONARY HERE - I HAVE SHORTENED IT FOR BREVITY]
 groups_data = {
     "Group A": [{"Position": 1, "Logo": get_logo_url("flamengo.png"), "Team": "Flamengo", "Played": 5, "Won": 4, "Lost": 0, "Drawn": 1, "Goals Scored": 11, "Goals Received": 2, "Goal Difference": 9, "Points": 13}, {"Position": 2, "Logo": get_logo_url("dim.png"), "Team": "Independiente Medellín", "Played": 5, "Won": 2, "Lost": 2, "Drawn": 1, "Goals Scored": 6, "Goals Received": 10, "Goal Difference": -4, "Points": 7}, {"Position": 3, "Logo": get_logo_url("estudiantes.png"), "Team": "Estudiantes de La Plata", "Played": 5, "Won": 1, "Lost": 1, "Drawn": 3, "Goals Scored": 5, "Goals Received": 5, "Goal Difference": 0, "Points": 6}, {"Position": 4, "Logo": get_logo_url("cusco.png"), "Team": "Cusco FC", "Played": 5, "Won": 0, "Lost": 4, "Drawn": 1, "Goals Scored": 4, "Goals Received": 9, "Goal Difference": -5, "Points": 1}],
     "Group B": [{"Position": 1, "Logo": get_logo_url("coquimbo.png"), "Team": "Coquimbo Unido", "Played": 5, "Won": 3, "Lost": 1, "Drawn": 1, "Goals Scored": 8, "Goals Received": 5, "Goal Difference": 3, "Points": 10}, {"Position": 2, "Logo": get_logo_url("tolima.png"), "Team": "Deportes Tolima", "Played": 5, "Won": 2, "Lost": 2, "Drawn": 1, "Goals Scored": 7, "Goals Received": 6, "Goal Difference": 1, "Points": 7}, {"Position": 3, "Logo": get_logo_url("universitario.png"), "Team": "Universitario", "Played": 5, "Won": 1, "Lost": 2, "Drawn": 2, "Goals Scored": 5, "Goals Received": 6, "Goal Difference": -1, "Points": 5}, {"Position": 4, "Logo": get_logo_url("nacional.png"), "Team": "Nacional de Football", "Played": 5, "Won": 1, "Lost": 2, "Drawn": 2, "Goals Scored": 6, "Goals Received": 9, "Goal Difference": -3, "Points": 5}],
@@ -57,50 +95,22 @@ for i in range(0, len(group_items), 2):
 
 st.divider()
 
-# --- AUTOMATIC ODDS FETCHING ---
-SLUG_MAP = {
-    "Flamengo vs Cusco FC": "lib-fla-gar-2026-05-26",
-    "Estudiantes de La Plata vs Independiente Medellín": "lib-est-dim-2026-05-26",
-    "Nacional de Football vs Coquimbo Unido": "lib-nac-coq-2026-05-26",
-    "Universitario vs Deportes Tolima": "lib-uni-tol-2026-05-26",
-    "Bolívar vs Ind. Rivadavia": "lib-bol-cir-2026-05-27",
-    "Fluminense FC vs Deportivo La Guaira": "lib-flu-gua1-2026-05-27",
-    "Boca Juniors vs Universidad Católica": "lib-boc-cat1-2026-05-28",
-    "Cruzeiro vs Barcelona S.C.": "lib-cru-bar-2026-05-28",
-    "Peñarol vs Independiente Santa Fe": "lib-pen-san1-2026-05-27",
-    "Corinthians vs Platense": "lib-cor-cp-2026-05-27",
-    "Cerro Porteño vs Sporting Cristal": "lib-cep-cri-2026-05-28",
-    "Palmeiras vs Junior FC": "lib-pal-jun-2026-05-28",
-    "Lanús vs Mirassol": "lib-lan-mir-2026-05-26",
-    "LDU Quito vs Always Ready": "lib-lqu-alw-2026-05-26",
-    "Independiente del Valle vs Rosario Central": "lib-ind1-ros-2026-05-27",
-    "Libertad vs Universidad Central": "lib-lib-ucv-2026-05-27"
-}
-
-@st.cache_data(ttl=3600)
-def fetch_odds(slug):
-    try:
-        url = f"https://gamma-api.polymarket.com/events/slug/{slug}"
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            prices = json.loads(data.get("outcomePrices", "[]"))
-            if len(prices) >= 2: return round(float(prices[0])*100, 1), round(float(prices[1])*100, 1)
-    except: pass
-    return 50.0, 50.0
-
+# --- MODIFIED MATCH DEFAULTS WITH API ---
 def get_match_defaults(home, away, group_data):
     h_s = next(t for t in group_data if t["Team"] == home)
     a_s = next(t for t in group_data if t["Team"] == away)
     h_xg = ((h_s["Goals Scored"] / max(1, h_s["Played"])) + (a_s["Goals Received"] / max(1, a_s["Played"]))) / 2 + 0.2
     a_xg = ((a_s["Goals Scored"] / max(1, a_s["Played"])) + (h_s["Goals Received"] / max(1, h_s["Played"]))) / 2
     
-    slug = SLUG_MAP.get(f"{home} vs {away}")
-    ph, pa = fetch_odds(slug) if slug else (50.0, 50.0)
-    return {"ph": ph, "pa": pa, "xgh": float(h_xg), "xga": float(a_xg)}
+    # NEW: Fetch live odds
+    api_data = fetch_odds_from_odds_api()
+    ph, pa, pd = get_fair_probabilities(home, api_data)
+    
+    return {"ph": round(ph, 1), "pa": round(pa, 1), "pd": round(pd, 1), "xgh": float(h_xg), "xga": float(a_xg)}
 
 # --- SIMULATION ENGINE ---
 def simulate_match_randomly(ph, pt, pa, xgh, xga):
+    # Adjust probability sum to 100% using pt
     p = [ph/100, pt/100, pa/100]
     outcome = np.random.choice(['H', 'D', 'A'], p=p)
     for _ in range(100):
@@ -109,7 +119,7 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
     return (1, 0) if outcome == 'H' else (0, 0) if outcome == 'D' else (0, 1)
 
 # --- UI ---
-st.header("Matchday 6 Simulator")
+st.header("🎲 Matchday 6 Monte Carlo Simulator")
 mc_iterations = st.number_input("Iterations", value=1000)
 predictions = {}
 matchday_6_fixtures = {
@@ -141,7 +151,8 @@ with st.form("mc_form"):
                 with c[3]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
                 with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
                 with c[5]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 28px;'><img src='{a_l}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{away}</b></div>", unsafe_allow_html=True)
-                group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": max(0, 100-ph-pa), "pa": pa, "xgh": xgh, "xga": xga})
+                # Note: We pass 'pd' (Draw prob) into the prediction dictionary so the simulation uses it
+                group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": defaults.get("pd", 20.0), "pa": pa, "xgh": xgh, "xga": xga})
         predictions[group_name] = group_preds
     run_mc = st.form_submit_button("Predict", type="primary")
 
