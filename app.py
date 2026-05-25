@@ -98,7 +98,7 @@ def simulate_match_randomly(ph, pt, pa, xgh, xga):
     return (1, 0) if outcome == 'H' else (0, 0) if outcome == 'D' else (0, 1)
 
 # --- UI ---
-st.header("🎲 Matchday 6 Monte Carlo Simulator")
+st.header("Matchday 6 Simulator")
 mc_iterations = st.number_input("Iterations", value=1000)
 predictions = {}
 matchday_6_fixtures = {
@@ -132,7 +132,7 @@ with st.form("mc_form"):
                 with c[5]: st.markdown(f"<div style='display: flex; align-items: center; justify-content: flex-start; margin-top: 28px;'><img src='{a_l}' width='24' height='24' style='margin-right: 8px;'><b style='font-size:0.85em'>{away}</b></div>", unsafe_allow_html=True)
                 group_preds.append({"group": group_name, "home": home, "away": away, "ph": ph, "pt": max(0, 100-ph-pa), "pa": pa, "xgh": xgh, "xga": xga})
         predictions[group_name] = group_preds
-    run_mc = st.form_submit_button("Run Analysis", type="primary")
+    run_mc = st.form_submit_button("Predict", type="primary")
 
 if run_mc:
     mc_results = {g: {t["Team"]: {1:0, 2:0, 3:0, 4:0} for t in groups_data[g]} for g in groups_data}
