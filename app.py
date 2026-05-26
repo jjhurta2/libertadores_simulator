@@ -574,5 +574,5 @@ if run_mc:
 st.divider()
 
 # Debug button moved to bottom
-if st.button("Debug: Test Odds API"):
-    debug_odds_api()
+# if st.button("Debug: Test Odds API"):
+#     debug_odds_api()
