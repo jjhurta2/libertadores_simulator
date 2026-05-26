@@ -494,7 +494,7 @@ for i in range(0, len(group_items), 2):
 
 st.divider()
 st.header("Matchday 6 Simulator")
-mc_iterations = st.number_input("Iterations", value=1000, min_value=100, max_value=50000)
+mc_iterations = st.number_input("Iterations", value=500, min_value=30, max_value=10000)
 
 run_mc = False
 predictions = {}
@@ -519,7 +519,7 @@ with st.form("mc_form"):
             h_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == home), "")
             a_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == away), "")
             with match_cols[i]:
-                c = st.columns([3, 1, 1, 0.5, 1, 1, 0.5, 3])
+                c = st.columns([3, 1, 1, 0.5, 1, 1, 3])
                 with c[0]:
                     st.markdown(
                         f"<div style='display:flex;align-items:center;justify-content:flex-end;margin-top:28px;'>"
@@ -530,8 +530,7 @@ with st.form("mc_form"):
                 with c[3]: st.empty()  # Spacer
                 with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
                 with c[5]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
-                with c[6]: st.empty()  # Spacer
-                with c[7]:
+                with c[6]:
                     st.markdown(
                         f"<div style='display:flex;align-items:center;justify-content:flex-start;margin-top:28px;'>"
                         f"<img src='{a_l}' width='24' height='24' style='margin-right:8px;'>"
