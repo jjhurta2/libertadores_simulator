@@ -83,7 +83,7 @@ teams_meta = {
 # --- PAST MATCH RESULTS (Matchdays 1–5) ---
 past_matches = [
     # GROUP A
-    {"group": "Group A", "home": "DIM", "away": "Estudiantes",                                 "home_score": 1, "away_score": 1},
+    {"group": "Group A", "home": "DIM",                    "away": "Estudiantes",              "home_score": 1, "away_score": 1},
     {"group": "Group A", "home": "Cusco",                  "away": "Flamengo",                 "home_score": 0, "away_score": 2},
     {"group": "Group A", "home": "Estudiantes",            "away": "Cusco",                    "home_score": 2, "away_score": 1},
     {"group": "Group A", "home": "Flamengo",               "away": "DIM",                      "home_score": 4, "away_score": 1},
@@ -93,6 +93,8 @@ past_matches = [
     {"group": "Group A", "home": "Cusco",                  "away": "Estudiantes",              "home_score": 1, "away_score": 1},
     {"group": "Group A", "home": "Flamengo",               "away": "Estudiantes",              "home_score": 1, "away_score": 0},
     {"group": "Group A", "home": "Cusco",                  "away": "DIM",                      "home_score": 2, "away_score": 3},
+    {"group": "Group A", "home": "Estudiantes",            "away": "DIM",                      "home_score": 1, "away_score": 0},
+    {"group": "Group A", "home": "Flamengo",               "away": "Cusco",                    "home_score": 3, "away_score": 0},
     # GROUP B
     {"group": "Group B", "home": "Deportes Tolima",        "away": "Universitario",            "home_score": 0, "away_score": 0},
     {"group": "Group B", "home": "Coquimbo Unido",         "away": "Nacional",                 "home_score": 1, "away_score": 1},
@@ -104,6 +106,8 @@ past_matches = [
     {"group": "Group B", "home": "Coquimbo Unido",         "away": "Universitario",            "home_score": 2, "away_score": 1},
     {"group": "Group B", "home": "Coquimbo Unido",         "away": "Deportes Tolima",          "home_score": 3, "away_score": 0},
     {"group": "Group B", "home": "Nacional",               "away": "Universitario",            "home_score": 0, "away_score": 0},
+    {"group": "Group B", "home": "Nacional",               "away": "Coquimbo Unido",           "home_score": 1, "away_score": 0},
+    {"group": "Group B", "home": "Universitario",          "away": "Deportes Tolima",          "home_score": 0, "away_score": 0},
     # GROUP C
     {"group": "Group C", "home": "Deportivo La Guaira",    "away": "Fluminense",               "home_score": 0, "away_score": 0},
     {"group": "Group C", "home": "Ind. Rivadavia",         "away": "Bolívar",                  "home_score": 1, "away_score": 0},
@@ -115,6 +119,8 @@ past_matches = [
     {"group": "Group C", "home": "Ind. Rivadavia",         "away": "Fluminense",               "home_score": 1, "away_score": 1},
     {"group": "Group C", "home": "Fluminense",             "away": "Bolívar",                  "home_score": 2, "away_score": 1},
     {"group": "Group C", "home": "Deportivo La Guaira",    "away": "Ind. Rivadavia",           "home_score": 2, "away_score": 4},
+    {"group": "Group C", "home": "Fluminense",             "away": "Deportivo La Guaira",      "home_score": 3, "away_score": 1},
+    {"group": "Group C", "home": "Bolívar",                "away": "Ind. Rivadavia",           "home_score": 1, "away_score": 3},
     # GROUP D
     {"group": "Group D", "home": "Barcelona S.C.",         "away": "Cruzeiro",                 "home_score": 0, "away_score": 1},
     {"group": "Group D", "home": "Universidad Católica",   "away": "Boca Juniors",             "home_score": 1, "away_score": 2},
@@ -126,6 +132,8 @@ past_matches = [
     {"group": "Group D", "home": "Universidad Católica",   "away": "Cruzeiro",                 "home_score": 0, "away_score": 0},
     {"group": "Group D", "home": "Boca Juniors",           "away": "Cruzeiro",                 "home_score": 1, "away_score": 1},
     {"group": "Group D", "home": "Universidad Católica",   "away": "Barcelona S.C.",           "home_score": 2, "away_score": 0},
+    {"group": "Group D", "home": "Boca Juniors",           "away": "Universidad Católica",     "home_score": 0, "away_score": 1},
+    {"group": "Group D", "home": "Cruzeiro",               "away": "Barcelona S.C.",           "home_score": 4, "away_score": 0},
     # GROUP E
     {"group": "Group E", "home": "Platense",               "away": "Corinthians",              "home_score": 0, "away_score": 2},
     {"group": "Group E", "home": "Independiente Santa Fe", "away": "Peñarol",                  "home_score": 1, "away_score": 1},
@@ -137,6 +145,8 @@ past_matches = [
     {"group": "Group E", "home": "Platense",               "away": "Peñarol",                  "home_score": 1, "away_score": 1},
     {"group": "Group E", "home": "Independiente Santa Fe", "away": "Platense",                 "home_score": 2, "away_score": 1},
     {"group": "Group E", "home": "Peñarol",                "away": "Corinthians",              "home_score": 1, "away_score": 1},
+    {"group": "Group E", "home": "Peñarol",                "away": "Independiente Santa Fe",   "home_score": 0, "away_score": 1},
+    {"group": "Group E", "home": "Corinthians",            "away": "Platense",                 "home_score": 0, "away_score": 2},
     # GROUP F
     {"group": "Group F", "home": "Junior FC",              "away": "Palmeiras",                "home_score": 1, "away_score": 1},
     {"group": "Group F", "home": "Sporting Cristal",       "away": "Cerro Porteño",            "home_score": 1, "away_score": 0},
@@ -148,6 +158,8 @@ past_matches = [
     {"group": "Group F", "home": "Junior FC",              "away": "Cerro Porteño",            "home_score": 0, "away_score": 1},
     {"group": "Group F", "home": "Palmeiras",              "away": "Cerro Porteño",            "home_score": 0, "away_score": 1},
     {"group": "Group F", "home": "Junior FC",              "away": "Sporting Cristal",         "home_score": 3, "away_score": 2},
+    {"group": "Group F", "home": "Cerro Porteño",          "away": "Sporting Cristal",         "home_score": 2, "away_score": 0},
+    {"group": "Group F", "home": "Palmeiras",              "away": "Junior FC",                "home_score": 4, "away_score": 1},
     # GROUP G
     {"group": "Group G", "home": "Always Ready",           "away": "LDU Quito",                "home_score": 0, "away_score": 1},
     {"group": "Group G", "home": "Mirassol",               "away": "Lanús",                    "home_score": 1, "away_score": 0},
@@ -159,6 +171,8 @@ past_matches = [
     {"group": "Group G", "home": "Mirassol",               "away": "LDU Quito",                "home_score": 2, "away_score": 0},
     {"group": "Group G", "home": "Always Ready",           "away": "Mirassol",                 "home_score": 1, "away_score": 2},
     {"group": "Group G", "home": "LDU Quito",              "away": "Lanús",                    "home_score": 2, "away_score": 0},
+    {"group": "Group G", "home": "LDU Quito",              "away": "Always Ready",             "home_score": 3, "away_score": 2},
+    {"group": "Group G", "home": "Lanús",                  "away": "Mirassol",                 "home_score": 1, "away_score": 0},
     # GROUP H
     {"group": "Group H", "home": "Rosario Central",        "away": "Independiente del Valle",  "home_score": 0, "away_score": 0},
     {"group": "Group H", "home": "Universidad Central",    "away": "Libertad",                 "home_score": 3, "away_score": 1},
@@ -170,6 +184,8 @@ past_matches = [
     {"group": "Group H", "home": "Universidad Central",    "away": "Independiente del Valle",  "home_score": 2, "away_score": 0},
     {"group": "Group H", "home": "Rosario Central",        "away": "Universidad Central",      "home_score": 4, "away_score": 0},
     {"group": "Group H", "home": "Independiente del Valle","away": "Libertad",                 "home_score": 4, "away_score": 1},
+    {"group": "Group H", "home": "Independiente del Valle","away": "Rosario Central",          "home_score": 1, "away_score": 0},
+    {"group": "Group H", "home": "Libertad",               "away": "Universidad Central",      "home_score": 0, "away_score": 1},
 ]
 
 # ---------------------------------------------------------------------------
