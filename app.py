@@ -80,9 +80,9 @@ teams_meta = {
     ],
 }
 
-# --- PAST MATCH RESULTS (Matchdays 1–5) ---
+# --- PAST MATCH RESULTS (All Group Stage Matchdays) ---
 past_matches = [
-    # GROUP A
+    # GROUP A - all 12 matches
     {"group": "Group A", "home": "DIM",                    "away": "Estudiantes",              "home_score": 1, "away_score": 1},
     {"group": "Group A", "home": "Cusco",                  "away": "Flamengo",                 "home_score": 0, "away_score": 2},
     {"group": "Group A", "home": "Estudiantes",            "away": "Cusco",                    "home_score": 2, "away_score": 1},
@@ -95,7 +95,7 @@ past_matches = [
     {"group": "Group A", "home": "Cusco",                  "away": "DIM",                      "home_score": 2, "away_score": 3},
     {"group": "Group A", "home": "Estudiantes",            "away": "DIM",                      "home_score": 1, "away_score": 0},
     {"group": "Group A", "home": "Flamengo",               "away": "Cusco",                    "home_score": 3, "away_score": 0},
-    # GROUP B
+    # GROUP B - all 12 matches
     {"group": "Group B", "home": "Deportes Tolima",        "away": "Universitario",            "home_score": 0, "away_score": 0},
     {"group": "Group B", "home": "Coquimbo Unido",         "away": "Nacional",                 "home_score": 1, "away_score": 1},
     {"group": "Group B", "home": "Nacional",               "away": "Deportes Tolima",          "home_score": 3, "away_score": 1},
@@ -108,7 +108,7 @@ past_matches = [
     {"group": "Group B", "home": "Nacional",               "away": "Universitario",            "home_score": 0, "away_score": 0},
     {"group": "Group B", "home": "Nacional",               "away": "Coquimbo Unido",           "home_score": 1, "away_score": 0},
     {"group": "Group B", "home": "Universitario",          "away": "Deportes Tolima",          "home_score": 0, "away_score": 0},
-    # GROUP C
+    # GROUP C - all 12 matches
     {"group": "Group C", "home": "Deportivo La Guaira",    "away": "Fluminense",               "home_score": 0, "away_score": 0},
     {"group": "Group C", "home": "Ind. Rivadavia",         "away": "Bolívar",                  "home_score": 1, "away_score": 0},
     {"group": "Group C", "home": "Bolívar",                "away": "Deportivo La Guaira",      "home_score": 1, "away_score": 1},
@@ -121,7 +121,7 @@ past_matches = [
     {"group": "Group C", "home": "Deportivo La Guaira",    "away": "Ind. Rivadavia",           "home_score": 2, "away_score": 4},
     {"group": "Group C", "home": "Fluminense",             "away": "Deportivo La Guaira",      "home_score": 3, "away_score": 1},
     {"group": "Group C", "home": "Bolívar",                "away": "Ind. Rivadavia",           "home_score": 1, "away_score": 3},
-    # GROUP D
+    # GROUP D - all 12 matches
     {"group": "Group D", "home": "Barcelona S.C.",         "away": "Cruzeiro",                 "home_score": 0, "away_score": 1},
     {"group": "Group D", "home": "Universidad Católica",   "away": "Boca Juniors",             "home_score": 1, "away_score": 2},
     {"group": "Group D", "home": "Boca Juniors",           "away": "Barcelona S.C.",           "home_score": 3, "away_score": 0},
@@ -134,7 +134,7 @@ past_matches = [
     {"group": "Group D", "home": "Universidad Católica",   "away": "Barcelona S.C.",           "home_score": 2, "away_score": 0},
     {"group": "Group D", "home": "Boca Juniors",           "away": "Universidad Católica",     "home_score": 0, "away_score": 1},
     {"group": "Group D", "home": "Cruzeiro",               "away": "Barcelona S.C.",           "home_score": 4, "away_score": 0},
-    # GROUP E
+    # GROUP E - all 12 matches
     {"group": "Group E", "home": "Platense",               "away": "Corinthians",              "home_score": 0, "away_score": 2},
     {"group": "Group E", "home": "Independiente Santa Fe", "away": "Peñarol",                  "home_score": 1, "away_score": 1},
     {"group": "Group E", "home": "Corinthians",            "away": "Independiente Santa Fe",   "home_score": 2, "away_score": 0},
@@ -147,7 +147,7 @@ past_matches = [
     {"group": "Group E", "home": "Peñarol",                "away": "Corinthians",              "home_score": 1, "away_score": 1},
     {"group": "Group E", "home": "Peñarol",                "away": "Independiente Santa Fe",   "home_score": 0, "away_score": 1},
     {"group": "Group E", "home": "Corinthians",            "away": "Platense",                 "home_score": 0, "away_score": 2},
-    # GROUP F
+    # GROUP F - all 12 matches
     {"group": "Group F", "home": "Junior FC",              "away": "Palmeiras",                "home_score": 1, "away_score": 1},
     {"group": "Group F", "home": "Sporting Cristal",       "away": "Cerro Porteño",            "home_score": 1, "away_score": 0},
     {"group": "Group F", "home": "Cerro Porteño",          "away": "Junior FC",                "home_score": 1, "away_score": 0},
@@ -160,7 +160,7 @@ past_matches = [
     {"group": "Group F", "home": "Junior FC",              "away": "Sporting Cristal",         "home_score": 3, "away_score": 2},
     {"group": "Group F", "home": "Cerro Porteño",          "away": "Sporting Cristal",         "home_score": 2, "away_score": 0},
     {"group": "Group F", "home": "Palmeiras",              "away": "Junior FC",                "home_score": 4, "away_score": 1},
-    # GROUP G
+    # GROUP G - all 12 matches
     {"group": "Group G", "home": "Always Ready",           "away": "LDU Quito",                "home_score": 0, "away_score": 1},
     {"group": "Group G", "home": "Mirassol",               "away": "Lanús",                    "home_score": 1, "away_score": 0},
     {"group": "Group G", "home": "LDU Quito",              "away": "Mirassol",                 "home_score": 2, "away_score": 0},
@@ -173,7 +173,7 @@ past_matches = [
     {"group": "Group G", "home": "LDU Quito",              "away": "Lanús",                    "home_score": 2, "away_score": 0},
     {"group": "Group G", "home": "LDU Quito",              "away": "Always Ready",             "home_score": 3, "away_score": 2},
     {"group": "Group G", "home": "Lanús",                  "away": "Mirassol",                 "home_score": 1, "away_score": 0},
-    # GROUP H
+    # GROUP H - all 12 matches
     {"group": "Group H", "home": "Rosario Central",        "away": "Independiente del Valle",  "home_score": 0, "away_score": 0},
     {"group": "Group H", "home": "Universidad Central",    "away": "Libertad",                 "home_score": 3, "away_score": 1},
     {"group": "Group H", "home": "Libertad",               "away": "Rosario Central",          "home_score": 0, "away_score": 1},
@@ -188,9 +188,7 @@ past_matches = [
     {"group": "Group H", "home": "Libertad",               "away": "Universidad Central",      "home_score": 0, "away_score": 1},
 ]
 
-# ---------------------------------------------------------------------------
-# DIXON-COLES ATTACK / DEFENSE RATINGS
-# ---------------------------------------------------------------------------
+# --- DIXON-COLES ATTACK / DEFENSE RATINGS ---
 @st.cache_data(ttl=3600)
 def fit_ratings(group_name: str) -> dict:
     matches = [m for m in past_matches if m["group"] == group_name]
@@ -205,10 +203,8 @@ def fit_ratings(group_name: str) -> dict:
         attacks  = np.exp(params[:n])
         defenses = np.exp(params[n:2*n])
         home_adv = np.exp(params[2*n])
-
         attacks  = attacks  / attacks.mean()
         defenses = defenses / defenses.mean()
-
         nll = 0.0
         for m in matches:
             hi, ai = idx[m["home"]], idx[m["away"]]
@@ -238,15 +234,12 @@ def fit_ratings(group_name: str) -> dict:
         "mu":       mu,
     }
 
-def dixon_coles_xg(home: str, away: str, ratings: dict) -> tuple[float, float]:
+def dixon_coles_xg(home: str, away: str, ratings: dict) -> tuple:
     a, d, ha, mu = ratings["attack"], ratings["defense"], ratings["home_adv"], ratings["mu"]
     xg_h = a.get(home, 1.0) * d.get(away, 1.0) * ha * mu
     xg_a = a.get(away, 1.0) * d.get(home, 1.0) * mu
     return round(max(0.3, min(xg_h, 5.0)), 2), round(max(0.3, min(xg_a, 5.0)), 2)
 
-# ---------------------------------------------------------------------------
-# STANDINGS / TIE-BREAK LOGIC
-# ---------------------------------------------------------------------------
 def calculate_standings(group_teams, all_group_matches):
     logo_map = {t["Team"]: t["Logo"] for t in group_teams}
     stats = {
@@ -287,7 +280,7 @@ def resolve_ties(teams_list, all_group_matches):
     for p in sorted(points_groups.keys(), reverse=True):
         tied = points_groups[p]
         if len(tied) == 1:
-            final_sorted.append(tied[0]);  continue
+            final_sorted.append(tied[0]); continue
         names = {t["Team"] for t in tied}
         h2h_matches = [m for m in all_group_matches if m["home"] in names and m["away"] in names]
         h2h_by_name = {s["Team"]: s for s in calculate_standings(tied, h2h_matches)}
@@ -312,164 +305,12 @@ def get_sorted_standings(group_name):
     raw.sort(key=lambda x: (x["Points"], x["Goal Difference"], x["Goals Scored"]), reverse=True)
     return resolve_ties(raw, group_matches)
 
-def simulate_match_randomly(ph, pt, pa, xgh, xga):
-    p = [ph / 100, pt / 100, pa / 100]
-    # Normalize probabilities to sum to 1.0
-    p_sum = sum(p)
-    p = [x / p_sum for x in p]
-    outcome = np.random.choice(['H', 'D', 'A'], p=p)
-    for _ in range(100):
-        hg, ag = np.random.poisson(xgh), np.random.poisson(xga)
-        if ((outcome == 'H' and hg > ag) or (outcome == 'D' and hg == ag) or (outcome == 'A' and hg < ag)):
-            return hg, ag
-    return (1, 0) if outcome == 'H' else (0, 0) if outcome == 'D' else (0, 1)
-
-# --- API HELPERS ---
-TEAM_MAP = {
-    "Flamengo": "Flamengo-RJ",
-    "DIM": "Independiente Medellín",
-    "Estudiantes": "Estudiantes La Plata",
-    "Cusco": "Cusco FC",
-    "Coquimbo Unido": "Coquimbo Unido",
-    "Deportes Tolima": "Deportes Tolima",
-    "Universitario": "Club Universitario de Deportes",
-    "Nacional": "Nacional de Montevideo",
-    "Ind. Rivadavia": "Independiente Rivadavia",
-    "Bolívar": "Club Bolívar",
-    "Fluminense": "Fluminense-RJ",
-    "Deportivo La Guaira": "Deportivo La Guaira",
-    "Universidad Católica": "Universidad Católica (CHI)",
-    "Cruzeiro": "Cruzeiro",
-    "Boca Juniors": "Boca Juniors",
-    "Barcelona S.C.": "Barcelona SC",
-    "Corinthians": "Corinthians-SP",
-    "Platense": "Platense",
-    "Independiente Santa Fe": "Independiente Santa Fe",
-    "Peñarol": "Peñarol Montevideo",
-    "Cerro Porteño": "Cerro Porteño",
-    "Palmeiras": "Palmeiras-SP",
-    "Sporting Cristal": "Sporting Cristal",
-    "Junior FC": "Junior FC",
-    "Mirassol": "Mirassol",
-    "LDU Quito": "LDU Quito",
-    "Lanús": "Lanus",
-    "Always Ready": "Club Always Ready",
-    "Rosario Central": "Rosario Central",
-    "Independiente del Valle": "Independiente del Valle",
-    "Universidad Central": "UCV FC",
-    "Libertad": "Libertad Asuncion",
-}
-
-@st.cache_data(ttl=3600)
-def fetch_odds_from_odds_api():
-    api_key = get_api_key()
-    url = "https://api.the-odds-api.com/v4/sports/soccer_conmebol_copa_libertadores/odds/"
-    params = {"apiKey": api_key, "regions": "us", "markets": "h2h"}
-    resp = requests.get(url, params=params)
-    return resp.json() if resp.status_code == 200 else []
-
-def debug_odds_api():
-    """Detailed debugging for API requests"""
-    api_key = get_api_key()
-    url = "https://api.the-odds-api.com/v4/sports/soccer_conmebol_copa_libertadores/odds/"
-    params = {"apiKey": api_key, "regions": "us", "markets": "h2h"}
-    
-    st.write("**API Request Details:**")
-    st.write(f"- URL: `{url}`")
-    st.write(f"- Parameters: `regions=us, markets=h2h` (API key hidden for security)")
-    
-    resp = requests.get(url, params=params)
-    
-    st.write(f"\n**Response Status:**")
-    st.write(f"- Status Code: `{resp.status_code}`")
-    st.write(f"- Headers: `{dict(resp.headers)}`")
-    
-    if resp.status_code == 200:
-        try:
-            data = resp.json()
-            st.write(f"\n**Response Data:**")
-            st.write(f"- Number of matches returned: `{len(data)}`")
-            if data:
-                st.write(f"\n**First match structure:**")
-                st.json(data[0])
-                st.write(f"\n**All teams in response:**")
-                for m in data:
-                    st.write(f"- {m.get('home_team', 'N/A')} vs {m.get('away_team', 'N/A')}")
-            else:
-                st.warning("API returned 200 OK but with empty data array")
-        except Exception as e:
-            st.error(f"Error parsing JSON: {e}")
-            st.write(f"Raw response text: {resp.text}")
-    else:
-        st.error(f"API request failed with status {resp.status_code}")
-        st.write(f"Response text: {resp.text}")
-
-def get_fair_probabilities(home_team, api_odds_data):
-    search_name = TEAM_MAP.get(home_team, home_team)
-    for match in api_odds_data:
-        if not match.get("bookmakers"):
-            continue
-        # Check if this match is for our home team (case-insensitive comparison)
-        if search_name.lower() == match["home_team"].lower():
-            try:
-                # Get the first bookmaker's odds
-                outcomes = match["bookmakers"][0]["markets"][0]["outcomes"]
-                
-                # Build odds dictionary - the outcome names are the actual team names from API
-                odds = {o["name"]: o["price"] for o in outcomes}
-                
-                # Look up probabilities using the exact team names from the API response
-                p_home = 1 / odds.get(match["home_team"], 2.0)
-                p_away = 1 / odds.get(match["away_team"], 2.0)
-                p_draw = 1 / odds.get("Draw", 3.0)
-                total = p_home + p_away + p_draw
-                return (p_home/total)*100, (p_away/total)*100, (p_draw/total)*100
-            except (KeyError, ZeroDivisionError, TypeError) as e:
-                break
-
-    return 50.0, 20.0, 30.0
-
-def xg_to_probabilities(xgh: float, xga: float, max_goals: int = 8) -> tuple:
-    from scipy.stats import poisson
-    home_win = draw = away_win = 0.0
-    for h in range(max_goals + 1):
-        for a in range(max_goals + 1):
-            p = poisson.pmf(h, xgh) * poisson.pmf(a, xga)
-            if h > a:   home_win += p
-            elif h == a: draw    += p
-            else:        away_win += p
-    total = home_win + draw + away_win
-    return (
-        round((home_win / total) * 100, 1),
-        round((draw     / total) * 100, 1),
-        round((away_win / total) * 100, 1),
-    )
-
-def get_match_defaults(home, away, group_name):
-    ratings = fit_ratings(group_name)
-    xgh, xga = dixon_coles_xg(home, away, ratings)
-
-    api_data = fetch_odds_from_odds_api()
-    ph, pa, pd = get_fair_probabilities(home, api_data)
-
-    if ph == 50.0 and pa == 20.0 and pd == 30.0:
-        ph, pd, pa = xg_to_probabilities(xgh, xga)
-
-    return {
-        "ph":  round(float(ph),  1),
-        "pa":  round(float(pa),  1),
-        "pd":  round(float(pd),  1),
-        "xgh": xgh,
-        "xga": xga,
-    }
-
 # --- BUILD groups_data FROM PAST MATCHES ---
 groups_data = {}
 for group_name in teams_meta:
     groups_data[group_name] = get_sorted_standings(group_name)
 
-# --- UI: STANDINGS TABLES WITH HTML UNIFICATION ---
-# Replaces the st.data_editor block to embed logo and text in the same cell
+# --- STANDINGS TABLES ---
 group_items = list(groups_data.items())
 for i in range(0, len(group_items), 2):
     c1, c2 = st.columns(2)
@@ -478,23 +319,14 @@ for i in range(0, len(group_items), 2):
             g_name, g_data = group_items[i + idx]
             with col:
                 st.subheader(g_name)
-                
                 display_df = create_group_df(g_data)
                 df_display = display_df.copy()
-                
-                # Create a single column "Team" with HTML embedding the logo image and team name
                 df_display['Team'] = df_display.apply(
                     lambda x: f'<div style="display: flex; align-items: center;"><img src="{x["Logo"]}" width="24" style="margin-right: 10px;"> {x["Team"]}</div>', 
                     axis=1
                 )
-                # Drop the original Logo column
                 df_display = df_display.drop(columns=['Logo'])
-                
-                # Render to an HTML table string
                 html_table = df_display.to_html(escape=False, index=False, justify='left')
-                
-                # IMPORTANT: Do not indent the HTML string below, otherwise Streamlit 
-                # will treat it as a Markdown code block!
                 styled_html = f"""
 <style>
 .custom-table table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; margin-bottom: 20px; }}
@@ -505,90 +337,182 @@ for i in range(0, len(group_items), 2):
 {html_table}
 </div>
 """
-                
                 st.markdown(styled_html, unsafe_allow_html=True)
 
 st.divider()
-st.header("Matchday 6 Simulator")
-mc_iterations = st.number_input("Iterations", value=500, min_value=30, max_value=10000)
+st.header("🏆 Knockout Stage Simulator")
 
-run_mc = False
-predictions = {}
-matchday_6_fixtures = {
-    "Group A": [("Flamengo", "Cusco"), ("Estudiantes", "DIM")],
-    "Group B": [("Nacional", "Coquimbo Unido"), ("Universitario", "Deportes Tolima")],
-    "Group C": [("Bolívar", "Ind. Rivadavia"), ("Fluminense", "Deportivo La Guaira")],
-    "Group D": [("Boca Juniors", "Universidad Católica"), ("Cruzeiro", "Barcelona S.C.")],
-    "Group E": [("Peñarol", "Independiente Santa Fe"), ("Corinthians", "Platense")],
-    "Group F": [("Cerro Porteño", "Sporting Cristal"), ("Palmeiras", "Junior FC")],
-    "Group G": [("Lanús", "Mirassol"), ("LDU Quito", "Always Ready")],
-    "Group H": [("Independiente del Valle", "Rosario Central"), ("Libertad", "Universidad Central")],
+# Helper function to get team logo
+def get_team_logo(team_name):
+    return next((t["Logo"] for g in teams_meta for t in teams_meta[g] if t["Team"] == team_name), "")
+
+# Get group for team to compute ratings
+def get_team_group(team_name):
+    return next((g for g in teams_meta if any(t["Team"] == team_name for t in teams_meta[g])), "Group A")
+
+mc_iterations = st.number_input("Iterations", value=500, min_value=50, max_value=5000, key="r16_iterations")
+
+# R16 Bracket setup
+r16_bracket = {
+    "A": ("Universidad Católica", "Estudiantes"),
+    "H": ("Corinthians", "Rosario Central"),
+    "E": ("Flamengo", "Cruzeiro"),
+    "D": ("Independiente del Valle", "Deportes Tolima"),
+    "B": ("LDU Quito", "Mirassol"),
+    "G": ("Cerro Porteño", "Palmeiras"),
+    "F": ("Coquimbo Unido", "Platense"),
+    "C": ("Ind. Rivadavia", "Fluminense"),
 }
 
-with st.form("mc_form"):
-    for group_name, fixtures in matchday_6_fixtures.items():
-        st.markdown(f"#### {group_name}")
-        group_preds = []
-        match_cols = st.columns(2)
-        for i, (home, away) in enumerate(fixtures):
-            defaults = get_match_defaults(home, away, group_name)
-            h_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == home), "")
-            a_l = next((t["Logo"] for t in groups_data[group_name] if t["Team"] == away), "")
-            with match_cols[i]:
-                c = st.columns([3, 1, 1, 0.5, 1, 1, 3])
-                with c[0]:
-                    st.markdown(
-                        f"<div style='display:flex;align-items:center;justify-content:flex-end;margin-top:28px;'>"
-                        f"<img src='{h_l}' width='24' height='24' style='margin-right:8px;'>"
-                        f"<b style='font-size:0.85em'>{home}</b></div>", unsafe_allow_html=True)
-                with c[1]: ph  = st.number_input("H%",  key=f"{group_name}_{i}_ph",  value=defaults["ph"])
-                with c[2]: xgh = st.number_input("HxG", key=f"{group_name}_{i}_xgh", value=defaults["xgh"])
-                with c[3]: st.empty()  # Spacer
-                with c[4]: xga = st.number_input("AxG", key=f"{group_name}_{i}_xga", value=defaults["xga"])
-                with c[5]: pa  = st.number_input("A%",  key=f"{group_name}_{i}_pa",  value=defaults["pa"])
-                with c[6]:
-                    st.markdown(
-                        f"<div style='display:flex;align-items:center;justify-content:flex-start;margin-top:28px;'>"
-                        f"<img src='{a_l}' width='24' height='24' style='margin-right:8px;'>"
-                        f"<b style='font-size:0.85em'>{away}</b></div>", unsafe_allow_html=True)
-                group_preds.append({
-                    "group": group_name, "home": home, "away": away,
-                    "ph": ph, "pt": defaults["pd"], "pa": pa, "xgh": xgh, "xga": xga,
-                })
-        predictions[group_name] = group_preds
+qf_bracket = {
+    "1": ("A", "H"),
+    "2": ("E", "D"),
+    "3": ("B", "G"),
+    "4": ("F", "C"),
+}
+
+sf_bracket = {
+    "SF1": ("1", "2"),
+    "SF2": ("3", "4"),
+}
+
+# Simulation settings form
+with st.form("r16_form"):
+    st.subheader("R16 Match Predictions")
     
-    # Center the Predict button
+    predictions = {}
+    
+    cols_layout = st.columns(2)
+    col_idx = 0
+    
+    for tie_letter in ["A", "H", "E", "D", "B", "G", "F", "C"]:
+        home, away = r16_bracket[tie_letter]
+        h_logo = get_team_logo(home)
+        a_logo = get_team_logo(away)
+        
+        # Get ratings
+        group = get_team_group(home)
+        ratings = fit_ratings(group)
+        xgh, xga = dixon_coles_xg(home, away, ratings)
+        
+        with cols_layout[col_idx % 2]:
+            st.markdown(f"**Tie {tie_letter}**")
+            st.markdown(
+                f'<div style="display:flex;align-items:center;gap:12px;margin:4px 0;">'
+                f'<img src="{h_logo}" width="20"><b>{home}</b></div>',
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                f'<div style="display:flex;align-items:center;gap:12px;margin:4px 0;">'
+                f'<img src="{a_logo}" width="20"><b>{away}</b></div>',
+                unsafe_allow_html=True
+            )
+            
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                ph = st.number_input(f"H% ({tie_letter})", value=50.0, min_value=0.0, max_value=100.0, key=f"ph_{tie_letter}")
+            with c2:
+                pd = st.number_input(f"D% ({tie_letter})", value=25.0, min_value=0.0, max_value=100.0, key=f"pd_{tie_letter}")
+            with c3:
+                pa = st.number_input(f"A% ({tie_letter})", value=25.0, min_value=0.0, max_value=100.0, key=f"pa_{tie_letter}")
+            
+            predictions[tie_letter] = {
+                "home": home, "away": away,
+                "ph": ph, "pd": pd, "pa": pa,
+                "xgh": xgh, "xga": xga
+            }
+            st.divider()
+        
+        col_idx += 1
+    
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        run_mc = st.form_submit_button("Predict", type="primary", use_container_width=True)
+        run_simulation = st.form_submit_button("🎯 Simulate Tournament", type="primary", use_container_width=True)
 
-# Check if form was submitted
-if run_mc:
-    mc_results = {g: {t["Team"]: {1:0,2:0,3:0,4:0} for t in groups_data[g]} for g in groups_data}
-    group_past  = {g: [m for m in past_matches if m["group"] == g] for g in groups_data}
-
-    for _ in range(int(mc_iterations)):
-        for g_name in groups_data.keys():
-            sim_m6 = []
-            for m in predictions[g_name]:
-                hg, ag = simulate_match_randomly(m["ph"], m["pt"], m["pa"], m["xgh"], m["xga"])
-                sim_m6.append({"home": m["home"], "away": m["away"], "home_score": hg, "away_score": ag})
-            all_matches  = group_past[g_name] + sim_m6
-            raw_standings = calculate_standings(teams_meta[g_name], all_matches)
-            sorted_s      = resolve_ties(raw_standings, all_matches)
-            for pos, team in enumerate(sorted_s):
-                mc_results[g_name][team["Team"]][pos + 1] += 1
-
-    for g_name in groups_data.keys():
-        st.subheader(f"{g_name} Matrix")
-        df_res = pd.DataFrame([
-            {"Team": t, **{f"{p}º": f"{(c/mc_iterations)*100:.1f}%" for p, c in pos.items()}}
-            for t, pos in mc_results[g_name].items()
-        ])
-        st.dataframe(df_res, hide_index=True, use_container_width=True)
-
-st.divider()
-
-# Debug button moved to bottom
-# if st.button("Debug: Test Odds API"):
-#     debug_odds_api()
+# --- TOURNAMENT SIMULATION ---
+if run_simulation:
+    # Initialize counters
+    tournament_results = {team: {"QF": 0, "SF": 0, "Final": 0, "Champion": 0} for tie_teams in r16_bracket.values() for team in tie_teams}
+    
+    for sim in range(int(mc_iterations)):
+        # R16 simulation - determine QF winners
+        qf_winners = {}
+        
+        for tie_letter, (home, away) in r16_bracket.items():
+            pred = predictions[tie_letter]
+            
+            # Simulate match
+            h_score = int(np.random.poisson(pred["xgh"]))
+            a_score = int(np.random.poisson(pred["xga"]))
+            
+            # Determine winner
+            if h_score > a_score:
+                winner = home
+            elif a_score > h_score:
+                winner = away
+            else:
+                # 50/50 in case of tie (simplified - no ET/penalties simulation)
+                winner = home if np.random.random() < 0.5 else away
+            
+            qf_winners[tie_letter] = winner
+            tournament_results[winner]["QF"] += 1
+        
+        # QF simulation - determine SF winners
+        sf_winners = {}
+        
+        for qf_id, (tie1, tie2) in qf_bracket.items():
+            team1, team2 = qf_winners[tie1], qf_winners[tie2]
+            
+            # Get ratings for simulation (use team1's group)
+            group = get_team_group(team1)
+            ratings = fit_ratings(group)
+            xgh, xga = dixon_coles_xg(team1, team2, ratings)
+            
+            # Simulate QF match
+            h_score = int(np.random.poisson(xgh))
+            a_score = int(np.random.poisson(xga))
+            
+            winner = team1 if h_score > a_score else (team2 if a_score > h_score else (team1 if np.random.random() < 0.5 else team2))
+            
+            sf_winners[qf_id] = winner
+            tournament_results[winner]["SF"] += 1
+        
+        # SF simulation - determine finalists
+        finalists = []
+        
+        for sf_id in ["SF1", "SF2"]:
+            team = sf_winners[sf_id]
+            finalists.append(team)
+            tournament_results[team]["Final"] += 1
+        
+        # Final simulation
+        team1, team2 = finalists[0], finalists[1]
+        group = get_team_group(team1)
+        ratings = fit_ratings(group)
+        xgh, xga = dixon_coles_xg(team1, team2, ratings)
+        
+        h_score = int(np.random.poisson(xgh))
+        a_score = int(np.random.poisson(xga))
+        
+        champion = team1 if h_score > a_score else (team2 if a_score > h_score else (team1 if np.random.random() < 0.5 else team2))
+        tournament_results[champion]["Champion"] += 1
+    
+    # Display results
+    st.success("✅ Tournament Simulation Complete!")
+    st.divider()
+    
+    # Create results summary table
+    results_data = []
+    for team in sorted(tournament_results.keys()):
+        results_data.append({
+            "Team": team,
+            "QF": f"{(tournament_results[team]['QF'] / int(mc_iterations)) * 100:.1f}%",
+            "SF": f"{(tournament_results[team]['SF'] / int(mc_iterations)) * 100:.1f}%",
+            "Final": f"{(tournament_results[team]['Final'] / int(mc_iterations)) * 100:.1f}%",
+            "Champion": f"{(tournament_results[team]['Champion'] / int(mc_iterations)) * 100:.1f}%",
+        })
+    
+    results_df = pd.DataFrame(results_data).sort_values("Champion", key=lambda x: x.str.rstrip('%').astype(float), ascending=False)
+    
+    st.subheader("🏆 Tournament Probabilities")
+    st.dataframe(results_df, use_container_width=True, hide_index=True)
