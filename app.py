@@ -494,222 +494,222 @@ if run_simulation:
         tournament_results = {team: {"QF": 0, "SF": 0, "Final": 0, "Champion": 0} for team in all_teams}
         
         for sim in range(int(mc_iterations)):
-        # R16 simulation - determine QF winners via two-leg ties
-        qf_winners = {}
-        
-        for tie_letter, (team1, team2) in r16_bracket.items():
-            pred = predictions[tie_letter]
-            leg1_home = pred["leg1_home"]
-            leg1_away = pred["leg1_away"]
-            leg2_home = leg1_away  # Opposite team hosts leg 2
-            leg2_away = leg1_home
+                # R16 simulation - determine QF winners via two-leg ties
+                qf_winners = {}
             
-            # LEG 1
-            h_score_l1 = int(np.random.poisson(pred["xgh"]))
-            a_score_l1 = int(np.random.poisson(pred["xga"]))
+                for tie_letter, (team1, team2) in r16_bracket.items():
+                pred = predictions[tie_letter]
+                leg1_home = pred["leg1_home"]
+                leg1_away = pred["leg1_away"]
+                leg2_home = leg1_away  # Opposite team hosts leg 2
+                leg2_away = leg1_home
             
-            # LEG 2 - get xG for leg 2 matchup
-            group = get_team_group(leg2_home)
-            ratings2 = fit_ratings(group)
-            xgh2, xga2 = dixon_coles_xg(leg2_home, leg2_away, ratings2)
+                # LEG 1
+                h_score_l1 = int(np.random.poisson(pred["xgh"]))
+                a_score_l1 = int(np.random.poisson(pred["xga"]))
             
-            h_score_l2 = int(np.random.poisson(xgh2))
-            a_score_l2 = int(np.random.poisson(xga2))
+                # LEG 2 - get xG for leg 2 matchup
+                group = get_team_group(leg2_home)
+                ratings2 = fit_ratings(group)
+                xgh2, xga2 = dixon_coles_xg(leg2_home, leg2_away, ratings2)
             
-            # Aggregate score
-            agg_home = h_score_l1 + h_score_l2
-            agg_away = a_score_l1 + a_score_l2
+                h_score_l2 = int(np.random.poisson(xgh2))
+                a_score_l2 = int(np.random.poisson(xga2))
             
-            if agg_home > agg_away:
-                winner = leg1_home
-            elif agg_away > agg_home:
-                winner = leg1_away
-            else:
-                # Extra time on Leg 2 with full home advantage
-                # Use ratings from each team's group
-                group_h = get_team_group(leg2_home)
-                group_a = get_team_group(leg2_away)
-                ratings_et_h = fit_ratings(group_h)
-                ratings_et_a = fit_ratings(group_a)
-                
-                att_h = ratings_et_h["attack"].get(leg2_home, 1.0)
-                att_a = ratings_et_a["attack"].get(leg2_away, 1.0)
-                def_h = ratings_et_h["defense"].get(leg2_home, 1.0)
-                def_a = ratings_et_a["defense"].get(leg2_away, 1.0)
-                home_adv = (ratings_et_h["home_adv"] + ratings_et_a["home_adv"]) / 2
-                mu = (ratings_et_h["mu"] + ratings_et_a["mu"]) / 2
-                
-                xgh_et = att_h * def_a * home_adv * mu * 0.35
-                xga_et = att_a * def_h * mu * 0.35
-                
-                et_h = int(np.random.poisson(xgh_et))
-                et_a = int(np.random.poisson(xga_et))
-                
-                agg_home += et_h
-                agg_away += et_a
-                
+                # Aggregate score
+                agg_home = h_score_l1 + h_score_l2
+                agg_away = a_score_l1 + a_score_l2
+            
                 if agg_home > agg_away:
                     winner = leg1_home
                 elif agg_away > agg_home:
                     winner = leg1_away
                 else:
-                    # Penalties - 50/50
-                    winner = leg2_home if np.random.random() < 0.5 else leg2_away
+                    # Extra time on Leg 2 with full home advantage
+                    # Use ratings from each team's group
+                    group_h = get_team_group(leg2_home)
+                    group_a = get_team_group(leg2_away)
+                    ratings_et_h = fit_ratings(group_h)
+                    ratings_et_a = fit_ratings(group_a)
+                
+                    att_h = ratings_et_h["attack"].get(leg2_home, 1.0)
+                    att_a = ratings_et_a["attack"].get(leg2_away, 1.0)
+                    def_h = ratings_et_h["defense"].get(leg2_home, 1.0)
+                    def_a = ratings_et_a["defense"].get(leg2_away, 1.0)
+                    home_adv = (ratings_et_h["home_adv"] + ratings_et_a["home_adv"]) / 2
+                    mu = (ratings_et_h["mu"] + ratings_et_a["mu"]) / 2
+                
+                    xgh_et = att_h * def_a * home_adv * mu * 0.35
+                    xga_et = att_a * def_h * mu * 0.35
+                
+                    et_h = int(np.random.poisson(xgh_et))
+                    et_a = int(np.random.poisson(xga_et))
+                
+                    agg_home += et_h
+                    agg_away += et_a
+                
+                    if agg_home > agg_away:
+                        winner = leg1_home
+                    elif agg_away > agg_home:
+                        winner = leg1_away
+                    else:
+                        # Penalties - 50/50
+                        winner = leg2_home if np.random.random() < 0.5 else leg2_away
             
-            qf_winners[tie_letter] = winner
-            tournament_results[winner]["QF"] += 1
+                qf_winners[tie_letter] = winner
+                tournament_results[winner]["QF"] += 1
         
-        # QF simulation using bracket pairings
-        qf_winners_list = [qf_winners[bracket[0]] for bracket in qf_bracket[0:1]] + \
-                          [qf_winners[bracket[1]] for bracket in qf_bracket[0:1]] + \
-                          [qf_winners[bracket[0]] for bracket in qf_bracket[1:2]] + \
-                          [qf_winners[bracket[1]] for bracket in qf_bracket[1:2]] + \
-                          [qf_winners[bracket[0]] for bracket in qf_bracket[2:3]] + \
-                          [qf_winners[bracket[1]] for bracket in qf_bracket[2:3]] + \
-                          [qf_winners[bracket[0]] for bracket in qf_bracket[3:4]] + \
-                          [qf_winners[bracket[1]] for bracket in qf_bracket[3:4]]
+            # QF simulation using bracket pairings
+            qf_winners_list = [qf_winners[bracket[0]] for bracket in qf_bracket[0:1]] + \
+                              [qf_winners[bracket[1]] for bracket in qf_bracket[0:1]] + \
+                              [qf_winners[bracket[0]] for bracket in qf_bracket[1:2]] + \
+                              [qf_winners[bracket[1]] for bracket in qf_bracket[1:2]] + \
+                              [qf_winners[bracket[0]] for bracket in qf_bracket[2:3]] + \
+                              [qf_winners[bracket[1]] for bracket in qf_bracket[2:3]] + \
+                              [qf_winners[bracket[0]] for bracket in qf_bracket[3:4]] + \
+                              [qf_winners[bracket[1]] for bracket in qf_bracket[3:4]]
         
-        # Correct QF order
-        qf_list = [
-            qf_winners[qf_bracket[0][0]], qf_winners[qf_bracket[0][1]],
-            qf_winners[qf_bracket[1][0]], qf_winners[qf_bracket[1][1]],
-            qf_winners[qf_bracket[2][0]], qf_winners[qf_bracket[2][1]],
-            qf_winners[qf_bracket[3][0]], qf_winners[qf_bracket[3][1]],
-        ]
+            # Correct QF order
+            qf_list = [
+                qf_winners[qf_bracket[0][0]], qf_winners[qf_bracket[0][1]],
+                qf_winners[qf_bracket[1][0]], qf_winners[qf_bracket[1][1]],
+                qf_winners[qf_bracket[2][0]], qf_winners[qf_bracket[2][1]],
+                qf_winners[qf_bracket[3][0]], qf_winners[qf_bracket[3][1]],
+            ]
         
-        sf_winners = {}
+            sf_winners = {}
         
-        # SF1: Winner of (A vs H) vs Winner of (E vs D)
-        team1, team2 = qf_list[0], qf_list[2]
-        rank1, rank2 = get_team_ranking(team1), get_team_ranking(team2)
-        sf1_home = team2 if rank1 < rank2 else team1
-        sf1_away = team1 if rank1 < rank2 else team2
+            # SF1: Winner of (A vs H) vs Winner of (E vs D)
+            team1, team2 = qf_list[0], qf_list[2]
+            rank1, rank2 = get_team_ranking(team1), get_team_ranking(team2)
+            sf1_home = team2 if rank1 < rank2 else team1
+            sf1_away = team1 if rank1 < rank2 else team2
         
-        group_sf1_h = get_team_group(sf1_home)
-        group_sf1_a = get_team_group(sf1_away)
-        ratings_sf1_h = fit_ratings(group_sf1_h)
-        ratings_sf1_a = fit_ratings(group_sf1_a)
+            group_sf1_h = get_team_group(sf1_home)
+            group_sf1_a = get_team_group(sf1_away)
+            ratings_sf1_h = fit_ratings(group_sf1_h)
+            ratings_sf1_a = fit_ratings(group_sf1_a)
         
-        att_sf1_h = ratings_sf1_h["attack"].get(sf1_home, 1.0)
-        att_sf1_a = ratings_sf1_a["attack"].get(sf1_away, 1.0)
-        def_sf1_h = ratings_sf1_h["defense"].get(sf1_home, 1.0)
-        def_sf1_a = ratings_sf1_a["defense"].get(sf1_away, 1.0)
-        home_adv_sf1 = (ratings_sf1_h["home_adv"] + ratings_sf1_a["home_adv"]) / 2
-        mu_sf1 = (ratings_sf1_h["mu"] + ratings_sf1_a["mu"]) / 2
+            att_sf1_h = ratings_sf1_h["attack"].get(sf1_home, 1.0)
+            att_sf1_a = ratings_sf1_a["attack"].get(sf1_away, 1.0)
+            def_sf1_h = ratings_sf1_h["defense"].get(sf1_home, 1.0)
+            def_sf1_a = ratings_sf1_a["defense"].get(sf1_away, 1.0)
+            home_adv_sf1 = (ratings_sf1_h["home_adv"] + ratings_sf1_a["home_adv"]) / 2
+            mu_sf1 = (ratings_sf1_h["mu"] + ratings_sf1_a["mu"]) / 2
         
-        xgh_sf1 = att_sf1_h * def_sf1_a * home_adv_sf1 * mu_sf1
-        xga_sf1 = att_sf1_a * def_sf1_h * mu_sf1
-        xgh_sf1 = round(max(0.3, min(xgh_sf1, 5.0)), 2)
-        xga_sf1 = round(max(0.3, min(xga_sf1, 5.0)), 2)
+            xgh_sf1 = att_sf1_h * def_sf1_a * home_adv_sf1 * mu_sf1
+            xga_sf1 = att_sf1_a * def_sf1_h * mu_sf1
+            xgh_sf1 = round(max(0.3, min(xgh_sf1, 5.0)), 2)
+            xga_sf1 = round(max(0.3, min(xga_sf1, 5.0)), 2)
         
-        h_score = int(np.random.poisson(xgh_sf1))
-        a_score = int(np.random.poisson(xga_sf1))
-        sf_winners["SF1"] = sf1_home if h_score > a_score else (sf1_away if a_score > h_score else (sf1_home if np.random.random() < 0.5 else sf1_away))
-        tournament_results[sf_winners["SF1"]]["SF"] += 1
+            h_score = int(np.random.poisson(xgh_sf1))
+            a_score = int(np.random.poisson(xga_sf1))
+            sf_winners["SF1"] = sf1_home if h_score > a_score else (sf1_away if a_score > h_score else (sf1_home if np.random.random() < 0.5 else sf1_away))
+            tournament_results[sf_winners["SF1"]]["SF"] += 1
         
-        # SF2: Winner of (B vs G) vs Winner of (F vs C)
-        team1, team2 = qf_list[4], qf_list[6]
-        rank1, rank2 = get_team_ranking(team1), get_team_ranking(team2)
-        sf2_home = team2 if rank1 < rank2 else team1
-        sf2_away = team1 if rank1 < rank2 else team2
+            # SF2: Winner of (B vs G) vs Winner of (F vs C)
+            team1, team2 = qf_list[4], qf_list[6]
+            rank1, rank2 = get_team_ranking(team1), get_team_ranking(team2)
+            sf2_home = team2 if rank1 < rank2 else team1
+            sf2_away = team1 if rank1 < rank2 else team2
         
-        group_sf2_h = get_team_group(sf2_home)
-        group_sf2_a = get_team_group(sf2_away)
-        ratings_sf2_h = fit_ratings(group_sf2_h)
-        ratings_sf2_a = fit_ratings(group_sf2_a)
+            group_sf2_h = get_team_group(sf2_home)
+            group_sf2_a = get_team_group(sf2_away)
+            ratings_sf2_h = fit_ratings(group_sf2_h)
+            ratings_sf2_a = fit_ratings(group_sf2_a)
         
-        att_sf2_h = ratings_sf2_h["attack"].get(sf2_home, 1.0)
-        att_sf2_a = ratings_sf2_a["attack"].get(sf2_away, 1.0)
-        def_sf2_h = ratings_sf2_h["defense"].get(sf2_home, 1.0)
-        def_sf2_a = ratings_sf2_a["defense"].get(sf2_away, 1.0)
-        home_adv_sf2 = (ratings_sf2_h["home_adv"] + ratings_sf2_a["home_adv"]) / 2
-        mu_sf2 = (ratings_sf2_h["mu"] + ratings_sf2_a["mu"]) / 2
+            att_sf2_h = ratings_sf2_h["attack"].get(sf2_home, 1.0)
+            att_sf2_a = ratings_sf2_a["attack"].get(sf2_away, 1.0)
+            def_sf2_h = ratings_sf2_h["defense"].get(sf2_home, 1.0)
+            def_sf2_a = ratings_sf2_a["defense"].get(sf2_away, 1.0)
+            home_adv_sf2 = (ratings_sf2_h["home_adv"] + ratings_sf2_a["home_adv"]) / 2
+            mu_sf2 = (ratings_sf2_h["mu"] + ratings_sf2_a["mu"]) / 2
         
-        xgh_sf2 = att_sf2_h * def_sf2_a * home_adv_sf2 * mu_sf2
-        xga_sf2 = att_sf2_a * def_sf2_h * mu_sf2
-        xgh_sf2 = round(max(0.3, min(xgh_sf2, 5.0)), 2)
-        xga_sf2 = round(max(0.3, min(xga_sf2, 5.0)), 2)
+            xgh_sf2 = att_sf2_h * def_sf2_a * home_adv_sf2 * mu_sf2
+            xga_sf2 = att_sf2_a * def_sf2_h * mu_sf2
+            xgh_sf2 = round(max(0.3, min(xgh_sf2, 5.0)), 2)
+            xga_sf2 = round(max(0.3, min(xga_sf2, 5.0)), 2)
         
-        h_score = int(np.random.poisson(xgh_sf2))
-        a_score = int(np.random.poisson(xga_sf2))
-        sf_winners["SF2"] = sf2_home if h_score > a_score else (sf2_away if a_score > h_score else (sf2_home if np.random.random() < 0.5 else sf2_away))
-        tournament_results[sf_winners["SF2"]]["SF"] += 1
+            h_score = int(np.random.poisson(xgh_sf2))
+            a_score = int(np.random.poisson(xga_sf2))
+            sf_winners["SF2"] = sf2_home if h_score > a_score else (sf2_away if a_score > h_score else (sf2_home if np.random.random() < 0.5 else sf2_away))
+            tournament_results[sf_winners["SF2"]]["SF"] += 1
         
-        # Final (neutral ground)
-        finalist1, finalist2 = sf_winners["SF1"], sf_winners["SF2"]
-        tournament_results[finalist1]["Final"] += 1
-        tournament_results[finalist2]["Final"] += 1
+            # Final (neutral ground)
+            finalist1, finalist2 = sf_winners["SF1"], sf_winners["SF2"]
+            tournament_results[finalist1]["Final"] += 1
+            tournament_results[finalist2]["Final"] += 1
         
-        group_f1 = get_team_group(finalist1)
-        group_f2 = get_team_group(finalist2)
-        ratings_f1 = fit_ratings(group_f1)
-        ratings_f2 = fit_ratings(group_f2)
+            group_f1 = get_team_group(finalist1)
+            group_f2 = get_team_group(finalist2)
+            ratings_f1 = fit_ratings(group_f1)
+            ratings_f2 = fit_ratings(group_f2)
         
-        att_f1 = ratings_f1["attack"].get(finalist1, 1.0)
-        att_f2 = ratings_f2["attack"].get(finalist2, 1.0)
-        def_f1 = ratings_f1["defense"].get(finalist1, 1.0)
-        def_f2 = ratings_f2["defense"].get(finalist2, 1.0)
-        mu_f = (ratings_f1["mu"] + ratings_f2["mu"]) / 2
+            att_f1 = ratings_f1["attack"].get(finalist1, 1.0)
+            att_f2 = ratings_f2["attack"].get(finalist2, 1.0)
+            def_f1 = ratings_f1["defense"].get(finalist1, 1.0)
+            def_f2 = ratings_f2["defense"].get(finalist2, 1.0)
+            mu_f = (ratings_f1["mu"] + ratings_f2["mu"]) / 2
         
-        xgh = att_f1 * def_f2 * 1.0 * mu_f
-        xga = att_f2 * def_f1 * 1.0 * mu_f
-        xgh = round(max(0.3, min(xgh, 5.0)), 2)
-        xga = round(max(0.3, min(xga, 5.0)), 2)
+            xgh = att_f1 * def_f2 * 1.0 * mu_f
+            xga = att_f2 * def_f1 * 1.0 * mu_f
+            xgh = round(max(0.3, min(xgh, 5.0)), 2)
+            xga = round(max(0.3, min(xga, 5.0)), 2)
         
-        h_score = int(np.random.poisson(xgh))
-        a_score = int(np.random.poisson(xga))
+            h_score = int(np.random.poisson(xgh))
+            a_score = int(np.random.poisson(xga))
         
-        if h_score > a_score:
-            champion = finalist1
-        elif a_score > h_score:
-            champion = finalist2
-        else:
-            # Final ET (neutral ground - no home advantage)
-            att_f1_et = ratings_f1["attack"].get(finalist1, 1.0)
-            att_f2_et = ratings_f2["attack"].get(finalist2, 1.0)
-            def_f1_et = ratings_f1["defense"].get(finalist1, 1.0)
-            def_f2_et = ratings_f2["defense"].get(finalist2, 1.0)
-            
-            xgh_et = att_f1_et * def_f2_et * 1.0 * mu_f * 0.35
-            xga_et = att_f2_et * def_f1_et * 1.0 * mu_f * 0.35
-            
-            et_h = int(np.random.poisson(xgh_et))
-            et_a = int(np.random.poisson(xga_et))
-            
-            if et_h > et_a:
+            if h_score > a_score:
                 champion = finalist1
-            elif et_a > et_h:
+            elif a_score > h_score:
                 champion = finalist2
             else:
-                # Final penalties - 50/50
-                champion = finalist1 if np.random.random() < 0.5 else finalist2
-        
-        tournament_results[champion]["Champion"] += 1
-    
-        # Display results
-        st.success("✅ Tournament Simulation Complete!")
-        st.divider()
-        
-        # Create results summary table
-        results_data = []
-        for team in sorted(tournament_results.keys()):
-            champion_pct = (tournament_results[team]['Champion'] / int(mc_iterations)) * 100
-            results_data.append({
-                "Team": team,
-                "QF": f"{(tournament_results[team]['QF'] / int(mc_iterations)) * 100:.1f}%",
-                "SF": f"{(tournament_results[team]['SF'] / int(mc_iterations)) * 100:.1f}%",
-                "Final": f"{(tournament_results[team]['Final'] / int(mc_iterations)) * 100:.1f}%",
-                "Champion": f"{champion_pct:.1f}%",
-                "_champion_sort": champion_pct,
-            })
-        
-        if results_data:
-            results_df = pd.DataFrame(results_data).sort_values("_champion_sort", ascending=False).drop(columns=["_champion_sort"])
+                # Final ET (neutral ground - no home advantage)
+                att_f1_et = ratings_f1["attack"].get(finalist1, 1.0)
+                att_f2_et = ratings_f2["attack"].get(finalist2, 1.0)
+                def_f1_et = ratings_f1["defense"].get(finalist1, 1.0)
+                def_f2_et = ratings_f2["defense"].get(finalist2, 1.0)
             
-            st.subheader("🏆 Tournament Probabilities")
-            st.dataframe(results_df, use_container_width=True, hide_index=True)
-        else:
-            st.error("No results data generated")
+                xgh_et = att_f1_et * def_f2_et * 1.0 * mu_f * 0.35
+                xga_et = att_f2_et * def_f1_et * 1.0 * mu_f * 0.35
+            
+                et_h = int(np.random.poisson(xgh_et))
+                et_a = int(np.random.poisson(xga_et))
+            
+                if et_h > et_a:
+                    champion = finalist1
+                elif et_a > et_h:
+                    champion = finalist2
+                else:
+                    # Final penalties - 50/50
+                    champion = finalist1 if np.random.random() < 0.5 else finalist2
+        
+            tournament_results[champion]["Champion"] += 1
+    
+            # Display results
+            st.success("✅ Tournament Simulation Complete!")
+            st.divider()
+        
+            # Create results summary table
+            results_data = []
+            for team in sorted(tournament_results.keys()):
+                champion_pct = (tournament_results[team]['Champion'] / int(mc_iterations)) * 100
+                results_data.append({
+                    "Team": team,
+                    "QF": f"{(tournament_results[team]['QF'] / int(mc_iterations)) * 100:.1f}%",
+                    "SF": f"{(tournament_results[team]['SF'] / int(mc_iterations)) * 100:.1f}%",
+                    "Final": f"{(tournament_results[team]['Final'] / int(mc_iterations)) * 100:.1f}%",
+                    "Champion": f"{champion_pct:.1f}%",
+                    "_champion_sort": champion_pct,
+                })
+        
+            if results_data:
+                results_df = pd.DataFrame(results_data).sort_values("_champion_sort", ascending=False).drop(columns=["_champion_sort"])
+            
+                st.subheader("🏆 Tournament Probabilities")
+                st.dataframe(results_df, use_container_width=True, hide_index=True)
+            else:
+                st.error("No results data generated")
     
     except Exception as e:
         st.error(f"Simulation error: {str(e)}")
