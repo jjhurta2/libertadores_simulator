@@ -354,24 +354,25 @@ groups_data = {}
 for group_name in teams_meta:
     groups_data[group_name] = get_sorted_standings(group_name)
 
-# --- STANDINGS TABLES ---
-group_items = list(groups_data.items())
-for i in range(0, len(group_items), 2):
-    c1, c2 = st.columns(2)
-    for idx, col in enumerate([c1, c2]):
-        if i + idx < len(group_items):
-            g_name, g_data = group_items[i + idx]
-            with col:
-                st.subheader(g_name)
-                display_df = create_group_df(g_data)
-                df_display = display_df.copy()
-                df_display['Team'] = df_display.apply(
-                    lambda x: f'<div style="display: flex; align-items: center;"><img src="{x["Logo"]}" width="24" style="margin-right: 10px;"> {x["Team"]}</div>', 
-                    axis=1
-                )
-                df_display = df_display.drop(columns=['Logo'])
-                html_table = df_display.to_html(escape=False, index=False, justify='left')
-                styled_html = f"""
+# --- STANDINGS TABLES (HIDDEN BEHIND EXPANDER) ---
+with st.expander("📊 Show Group Standings Tables", expanded=False):
+    group_items = list(groups_data.items())
+    for i in range(0, len(group_items), 2):
+        c1, c2 = st.columns(2)
+        for idx, col in enumerate([c1, c2]):
+            if i + idx < len(group_items):
+                g_name, g_data = group_items[i + idx]
+                with col:
+                    st.subheader(g_name)
+                    display_df = create_group_df(g_data)
+                    df_display = display_df.copy()
+                    df_display['Team'] = df_display.apply(
+                        lambda x: f'<div style="display: flex; align-items: center;"><img src="{x["Logo"]}" width="24" style="margin-right: 10px;"> {x["Team"]}</div>', 
+                        axis=1
+                    )
+                    df_display = df_display.drop(columns=['Logo'])
+                    html_table = df_display.to_html(escape=False, index=False, justify='left')
+                    styled_html = f"""
 <style>
 .custom-table table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; margin-bottom: 20px; }}
 .custom-table th {{ border-bottom: 1px solid rgba(128, 128, 128, 0.2); padding: 10px 8px; text-align: left; font-weight: 600; color: inherit; }}
@@ -381,7 +382,7 @@ for i in range(0, len(group_items), 2):
 {html_table}
 </div>
 """
-                st.markdown(styled_html, unsafe_allow_html=True)
+                    st.markdown(styled_html, unsafe_allow_html=True)
 
 st.divider()
 st.header("🏆 Knockout Stage Simulator")
