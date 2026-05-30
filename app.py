@@ -494,10 +494,10 @@ if run_simulation:
         tournament_results = {team: {"QF": 0, "SF": 0, "Final": 0, "Champion": 0} for team in all_teams}
         
         for sim in range(int(mc_iterations)):
-                # R16 simulation - determine QF winners via two-leg ties
-                qf_winners = {}
+            # R16 simulation - determine QF winners via two-leg ties
+            qf_winners = {}
             
-                for tie_letter, (team1, team2) in r16_bracket.items():
+            for tie_letter, (team1, team2) in r16_bracket.items():
                 pred = predictions[tie_letter]
                 leg1_home = pred["leg1_home"]
                 leg1_away = pred["leg1_away"]
@@ -685,31 +685,31 @@ if run_simulation:
                     champion = finalist1 if np.random.random() < 0.5 else finalist2
         
             tournament_results[champion]["Champion"] += 1
+
+        # Display results
+        st.success("✅ Tournament Simulation Complete!")
+        st.divider()
     
-            # Display results
-            st.success("✅ Tournament Simulation Complete!")
-            st.divider()
+        # Create results summary table
+        results_data = []
+        for team in sorted(tournament_results.keys()):
+            champion_pct = (tournament_results[team]['Champion'] / int(mc_iterations)) * 100
+            results_data.append({
+                "Team": team,
+                "QF": f"{(tournament_results[team]['QF'] / int(mc_iterations)) * 100:.1f}%",
+                "SF": f"{(tournament_results[team]['SF'] / int(mc_iterations)) * 100:.1f}%",
+                "Final": f"{(tournament_results[team]['Final'] / int(mc_iterations)) * 100:.1f}%",
+                "Champion": f"{champion_pct:.1f}%",
+                "_champion_sort": champion_pct,
+            })
+    
+        if results_data:
+            results_df = pd.DataFrame(results_data).sort_values("_champion_sort", ascending=False).drop(columns=["_champion_sort"])
         
-            # Create results summary table
-            results_data = []
-            for team in sorted(tournament_results.keys()):
-                champion_pct = (tournament_results[team]['Champion'] / int(mc_iterations)) * 100
-                results_data.append({
-                    "Team": team,
-                    "QF": f"{(tournament_results[team]['QF'] / int(mc_iterations)) * 100:.1f}%",
-                    "SF": f"{(tournament_results[team]['SF'] / int(mc_iterations)) * 100:.1f}%",
-                    "Final": f"{(tournament_results[team]['Final'] / int(mc_iterations)) * 100:.1f}%",
-                    "Champion": f"{champion_pct:.1f}%",
-                    "_champion_sort": champion_pct,
-                })
-        
-            if results_data:
-                results_df = pd.DataFrame(results_data).sort_values("_champion_sort", ascending=False).drop(columns=["_champion_sort"])
-            
-                st.subheader("🏆 Tournament Probabilities")
-                st.dataframe(results_df, use_container_width=True, hide_index=True)
-            else:
-                st.error("No results data generated")
+            st.subheader("🏆 Tournament Probabilities")
+            st.dataframe(results_df, use_container_width=True, hide_index=True)
+        else:
+            st.error("No results data generated")
     
     except Exception as e:
         st.error(f"Simulation error: {str(e)}")
