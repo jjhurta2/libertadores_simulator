@@ -691,18 +691,24 @@ if run_simulation:
     
     # Create results summary table
     results_data = []
-    for team in sorted(tournament_results.keys()):
-        champion_pct = (tournament_results[team]['Champion'] / int(mc_iterations)) * 100
-        results_data.append({
-            "Team": team,
-            "QF": f"{(tournament_results[team]['QF'] / int(mc_iterations)) * 100:.1f}%",
-            "SF": f"{(tournament_results[team]['SF'] / int(mc_iterations)) * 100:.1f}%",
-            "Final": f"{(tournament_results[team]['Final'] / int(mc_iterations)) * 100:.1f}%",
-            "Champion": f"{champion_pct:.1f}%",
-            "_champion_sort": champion_pct,
-        })
-    
-    results_df = pd.DataFrame(results_data).sort_values("_champion_sort", ascending=False).drop(columns=["_champion_sort"])
-    
-    st.subheader("🏆 Tournament Probabilities")
-    st.dataframe(results_df, use_container_width=True, hide_index=True)
+    if tournament_results:
+        for team in sorted(tournament_results.keys()):
+            champion_pct = (tournament_results[team]['Champion'] / int(mc_iterations)) * 100
+            results_data.append({
+                "Team": team,
+                "QF": f"{(tournament_results[team]['QF'] / int(mc_iterations)) * 100:.1f}%",
+                "SF": f"{(tournament_results[team]['SF'] / int(mc_iterations)) * 100:.1f}%",
+                "Final": f"{(tournament_results[team]['Final'] / int(mc_iterations)) * 100:.1f}%",
+                "Champion": f"{champion_pct:.1f}%",
+                "_champion_sort": champion_pct,
+            })
+        
+        if results_data:
+            results_df = pd.DataFrame(results_data).sort_values("_champion_sort", ascending=False).drop(columns=["_champion_sort"])
+            
+            st.subheader("🏆 Tournament Probabilities")
+            st.dataframe(results_df, use_container_width=True, hide_index=True)
+        else:
+            st.warning("No results to display")
+    else:
+        st.warning("Tournament results are empty")
