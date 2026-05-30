@@ -484,15 +484,16 @@ with st.form("r16_form"):
 
 # --- TOURNAMENT SIMULATION ---
 if run_simulation:
-    # Initialize counters for all 16 R16 teams
-    all_teams = set()
-    for _, (t1, t2) in r16_bracket.items():
-        all_teams.add(t1)
-        all_teams.add(t2)
-    
-    tournament_results = {team: {"QF": 0, "SF": 0, "Final": 0, "Champion": 0} for team in all_teams}
-    
-    for sim in range(int(mc_iterations)):
+    try:
+        # Initialize counters for all 16 R16 teams
+        all_teams = set()
+        for _, (t1, t2) in r16_bracket.items():
+            all_teams.add(t1)
+            all_teams.add(t2)
+        
+        tournament_results = {team: {"QF": 0, "SF": 0, "Final": 0, "Champion": 0} for team in all_teams}
+        
+        for sim in range(int(mc_iterations)):
         # R16 simulation - determine QF winners via two-leg ties
         qf_winners = {}
         
@@ -685,13 +686,12 @@ if run_simulation:
         
         tournament_results[champion]["Champion"] += 1
     
-    # Display results
-    st.success("✅ Tournament Simulation Complete!")
-    st.divider()
-    
-    # Create results summary table
-    results_data = []
-    if tournament_results:
+        # Display results
+        st.success("✅ Tournament Simulation Complete!")
+        st.divider()
+        
+        # Create results summary table
+        results_data = []
         for team in sorted(tournament_results.keys()):
             champion_pct = (tournament_results[team]['Champion'] / int(mc_iterations)) * 100
             results_data.append({
@@ -709,6 +709,9 @@ if run_simulation:
             st.subheader("🏆 Tournament Probabilities")
             st.dataframe(results_df, use_container_width=True, hide_index=True)
         else:
-            st.warning("No results to display")
-    else:
-        st.warning("Tournament results are empty")
+            st.error("No results data generated")
+    
+    except Exception as e:
+        st.error(f"Simulation error: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
