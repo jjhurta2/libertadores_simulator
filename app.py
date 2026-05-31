@@ -443,7 +443,9 @@ with st.form("r16_form"):
         group = get_team_group(leg1_home)
         ratings = fit_ratings(group)
         xgh, xga = dixon_coles_xg(leg1_home, leg1_away, ratings)
-        ph, pd, pa = xg_to_probabilities(xgh, xga)
+        
+        # FIX: Renamed unpacking variables so they don't overwrite the 'pd' import
+        prob_h, prob_d, prob_a = xg_to_probabilities(xgh, xga)
         
         with cols_layout[col_idx % 2]:
             st.markdown(f"**Tie {tie_letter}**")
@@ -460,13 +462,13 @@ with st.form("r16_form"):
             
             c1, c2, c3 = st.columns(3)
             with c1:
-                ph_input = st.number_input(f"H% ({tie_letter})", value=ph, min_value=0.0, max_value=100.0, 
+                ph_input = st.number_input(f"H% ({tie_letter})", value=prob_h, min_value=0.0, max_value=100.0, 
                                    key=f"ph_{tie_letter}", step=1.0)
             with c2:
-                pd_input = st.number_input(f"D% ({tie_letter})", value=pd, min_value=0.0, max_value=100.0, 
+                pd_input = st.number_input(f"D% ({tie_letter})", value=prob_d, min_value=0.0, max_value=100.0, 
                                    key=f"pd_{tie_letter}", step=1.0)
             with c3:
-                pa_input = st.number_input(f"A% ({tie_letter})", value=pa, min_value=0.0, max_value=100.0, 
+                pa_input = st.number_input(f"A% ({tie_letter})", value=prob_a, min_value=0.0, max_value=100.0, 
                                    key=f"pa_{tie_letter}", step=1.0)
             
             predictions[tie_letter] = {
@@ -705,6 +707,7 @@ if run_simulation:
             })
     
         if results_data:
+            # pd will now correctly refer to the pandas library
             results_df = pd.DataFrame(results_data).sort_values("_champion_sort", ascending=False).drop(columns=["_champion_sort"])
         
             st.subheader("🏆 Tournament Probabilities")
